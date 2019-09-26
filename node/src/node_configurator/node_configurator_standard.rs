@@ -115,6 +115,14 @@ const NEIGHBORS_HELP: &str = "One or more Node descriptors for running Nodes in 
      If you have more than one, separate them with commas (but no spaces). There is no default value; \
      if you don't specify a neighbor, your Node will start without being connected to any Substratum \
      Network, although other Nodes will be able to connect to yours if they know your Node's descriptor.";
+const ORIGINATE_ONLY_HELP: &str = "If true, your Node will not accept connections from any other Node; \
+     it will only originate connections to other Nodes. This will reduce your Node's opportunity to route \
+     data (it will only ever have two neighbors, so the number of routes it can participate in is limited), \
+     it will reduce redundancy in the Substratum Network, and it will prevent your Node from acting as \
+     a connection point for other Nodes to get on the Network; but it will enable your Node to operate in \
+     an environment where your network hookup is preventing you from accepting connections, and it means \
+     that you don't have to provide your Node with its public IP address or forward any incoming ports \
+     through your router.";
 const WALLET_PASSWORD_HELP: &str =
     "A password or phrase to decrypt your consuming wallet or a keystore file. Can be changed \
      later and still produce the same addresses.";
@@ -256,6 +264,16 @@ fn app() -> App<'static, 'static> {
                 .use_delimiter(true)
                 .requires("ip")
                 .help(NEIGHBORS_HELP),
+        )
+        .arg(
+            Arg::with_name("originate-only")
+                .long("originate-only")
+                .value_name("ORIGINATE-ONLY")
+                .takes_value(true)
+                .possible_values(&["true", "false"])
+                .default_value ("false")
+                .case_insensitive(true)
+                .help(ORIGINATE_ONLY_HELP)
         )
         .arg(real_user_arg())
         .arg(

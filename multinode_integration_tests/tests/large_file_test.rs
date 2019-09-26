@@ -13,6 +13,7 @@ const MAXIMUM_KBYTES: &'static str = "148480";
 const REQUEST_BYTES: u64 = 157_286_400;
 
 #[test]
+#[ignore]
 fn downloading_a_file_larger_than_available_memory_doesnt_kill_node_but_makes_it_stronger() {
     let mut cluster = SubstratumNodeCluster::start().expect("starting cluster");
     let originating_node = cluster.start_real_node(
