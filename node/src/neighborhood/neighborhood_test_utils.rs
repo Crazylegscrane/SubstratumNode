@@ -15,7 +15,6 @@ use crate::test_utils::*;
 use std::convert::TryFrom;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
-use std::str::FromStr;
 
 impl From<(&NeighborhoodDatabase, &PublicKey, bool)> for AccessibleGossipRecord {
     fn from(
@@ -53,10 +52,7 @@ pub fn make_meaningless_db() -> NeighborhoodDatabase {
 pub fn db_from_node(node: &NodeRecord) -> NeighborhoodDatabase {
     NeighborhoodDatabase::new(
         node.public_key(),
-        &node.node_addr_opt().unwrap_or(NodeAddr::new(
-            &IpAddr::from_str("200.200.200.200").unwrap(),
-            &vec![200],
-        )),
+        node.node_addr_opt(),
         node.earning_wallet(),
         node.rate_pack().clone(),
         &CryptDENull::from(node.public_key(), DEFAULT_CHAIN_ID),
@@ -83,10 +79,10 @@ pub fn neighborhood_from_nodes(
             }
             .to_string(cryptde, DEFAULT_CHAIN_ID)],
         },
-        local_ip_addr: root
-            .node_addr_opt()
-            .expect("Root has to have NodeAddr")
-            .ip_addr(),
+        local_ip_addr_opt: match root.node_addr_opt() {
+            Some (node_addr) => Some (node_addr.ip_addr()),
+            None => None
+        },
         clandestine_port_list: root.node_addr_opt().unwrap().ports(),
         rate_pack: root.rate_pack().clone(),
     };

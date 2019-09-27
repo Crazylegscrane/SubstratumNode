@@ -9,7 +9,6 @@ use crate::node_configurator::{
 };
 use crate::sub_lib::crash_point::CrashPoint;
 use crate::sub_lib::main_tools::StdStreams;
-use crate::sub_lib::neighborhood::sentinel_ip_addr;
 use crate::sub_lib::ui_gateway::DEFAULT_UI_PORT;
 use clap::{App, Arg};
 use indoc::indoc;
@@ -63,7 +62,6 @@ impl NodeConfiguratorStandardUnprivileged {
 lazy_static! {
     static ref DEFAULT_UI_PORT_VALUE: String = DEFAULT_UI_PORT.to_string();
     static ref DEFAULT_CRASH_POINT_VALUE: String = format!("{}", CrashPoint::None);
-    static ref DEFAULT_IP_VALUE: String = sentinel_ip_addr().to_string();
     static ref UI_PORT_HELP: String = format!(
         "The port at which user interfaces will connect to the Node. Best to accept the default unless \
         you know what you're doing. Must be between {} and {}.",
@@ -101,7 +99,8 @@ const EARNING_WALLET_HELP: &str =
 const IP_ADDRESS_HELP: &str = "The public IP address of your SubstratumNode: that is, the IPv4 \
      address at which other SubstratumNodes can contact yours. If you're running your Node behind \
      a router, this will be the IP address of the router. If this IP address starts with 192.168 or 10.0, \
-     it's a local address rather than a public address, and other Nodes won't be able to see yours.";
+     it's a local address rather than a public address, and other Nodes won't be able to see yours. \
+     A public IP address is not required in Zero-Hop Mode or Originate-Only Mode.";
 const LOG_LEVEL_HELP: &str =
     "The minimum severity of the logs that should appear in the Node's logfile. You should probably not specify \
      a level lower than the default unless you're doing testing or forensics: a Node at the 'trace' log level \
@@ -242,7 +241,6 @@ fn app() -> App<'static, 'static> {
                 .long("ip")
                 .value_name("IP")
                 .takes_value(true)
-                .default_value(&DEFAULT_IP_VALUE)
                 .validator(validators::validate_ip_address)
                 .help(IP_ADDRESS_HELP),
         )
@@ -262,7 +260,7 @@ fn app() -> App<'static, 'static> {
                 .value_name("NODE-DESCRIPTORS")
                 .takes_value(true)
                 .use_delimiter(true)
-                .requires("ip")
+                .requires("ip") // TODO: Get rid of this
                 .help(NEIGHBORS_HELP),
         )
         .arg(
@@ -365,8 +363,7 @@ mod standard {
             .map(|ip| SocketAddr::from((ip, 53)))
             .collect();
 
-        config.neighborhood_config.local_ip_addr =
-            value_m!(multi_config, "ip", IpAddr).expect("Internal Error");
+        config.neighborhood_config.local_ip_addr_opt = value_m!(multi_config, "ip", IpAddr);
 
         config.log_level =
             value_m!(multi_config, "log-level", LevelFilter).expect("Internal Error");
@@ -664,7 +661,6 @@ mod tests {
     use crate::sub_lib::crash_point::CrashPoint;
     use crate::sub_lib::cryptde::{CryptDE, PlainData, PublicKey};
     use crate::sub_lib::cryptde_null::CryptDENull;
-    use crate::sub_lib::neighborhood::sentinel_ip_addr;
     use crate::sub_lib::wallet::Wallet;
     use crate::test_utils::environment_guard::EnvironmentGuard;
     use crate::test_utils::persistent_configuration_mock::PersistentConfigurationMock;
@@ -1001,8 +997,8 @@ mod tests {
             ),
         );
         assert_eq!(
-            config.neighborhood_config.local_ip_addr,
-            IpAddr::V4(Ipv4Addr::new(34, 56, 78, 90)),
+            config.neighborhood_config.local_ip_addr_opt,
+            Some (IpAddr::V4(Ipv4Addr::new(34, 56, 78, 90))),
         );
         assert_eq!(config.ui_gateway_config.ui_port, 5335);
         let expected_port_list: Vec<u16> = vec![];
@@ -1121,9 +1117,9 @@ mod tests {
                 SocketAddr::from_str("23.45.67.89:53").unwrap()
             )
         );
-        assert_eq!(CrashPoint::None, config.crash_point);
-        assert_eq!(sentinel_ip_addr(), config.neighborhood_config.local_ip_addr,);
-        assert_eq!(5333, config.ui_gateway_config.ui_port);
+        assert_eq!(config.crash_point, CrashPoint::None);
+        assert!(config.neighborhood_config.local_ip_addr_opt.is_none());
+        assert_eq!(config.ui_gateway_config.ui_port, 5333);
         assert!(config.cryptde_null_opt.is_none());
         assert_eq!(config.real_user, RealUser::null().populate());
     }

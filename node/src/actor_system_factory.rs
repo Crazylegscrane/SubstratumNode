@@ -895,7 +895,7 @@ mod tests {
             dns_servers: vec![],
             neighborhood_config: NeighborhoodConfig {
                 neighbor_configs: vec![],
-                local_ip_addr: IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)),
+                local_ip_addr_opt: Some (IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))),
                 clandestine_port_list: vec![],
                 rate_pack: rate_pack(100),
             },
@@ -953,7 +953,7 @@ mod tests {
             dns_servers: vec![],
             neighborhood_config: NeighborhoodConfig {
                 neighbor_configs: vec![],
-                local_ip_addr: IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)),
+                local_ip_addr_opt: Some (IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))),
                 clandestine_port_list: vec![],
                 rate_pack: rate_pack(100),
             },
@@ -1054,7 +1054,7 @@ mod tests {
             dns_servers: vec![],
             neighborhood_config: NeighborhoodConfig {
                 neighbor_configs: vec![],
-                local_ip_addr: IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)),
+                local_ip_addr_opt: Some (IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))),
                 clandestine_port_list: vec![],
                 rate_pack: rate_pack(100),
             },

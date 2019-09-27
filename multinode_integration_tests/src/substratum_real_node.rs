@@ -12,7 +12,6 @@ use node_lib::blockchain::blockchain_interface::chain_id_from_name;
 use node_lib::sub_lib::accountant::DEFAULT_EARNING_WALLET;
 use node_lib::sub_lib::cryptde::{CryptDE, PublicKey};
 use node_lib::sub_lib::cryptde_null::CryptDENull;
-use node_lib::sub_lib::neighborhood::sentinel_ip_addr;
 use node_lib::sub_lib::neighborhood::RatePack;
 use node_lib::sub_lib::neighborhood::DEFAULT_RATE_PACK;
 use node_lib::sub_lib::neighborhood::ZERO_RATE_PACK;
@@ -133,7 +132,7 @@ impl NodeStartupConfig {
             dns_servers: Vec::new(),
             neighbors: Vec::new(),
             clandestine_port_opt: None,
-            dns_target: sentinel_ip_addr(),
+            dns_target: IpAddr::V4 (Ipv4Addr::new (255, 255, 255, 255)),
             dns_port: 0,
             earning_wallet_info: EarningWalletInfo::None,
             consuming_wallet_info: ConsumingWalletInfo::None,
@@ -554,7 +553,10 @@ impl SubstratumNode for SubstratumRealNode {
     }
 
     fn port_list(&self) -> Vec<u16> {
-        self.node_reference().node_addr.ports().clone()
+        match self.node_reference().node_addr_opt {
+            Some (node_addr) => node_addr.ports().clone(),
+            None => vec![],
+        }
     }
 
     fn node_addr(&self) -> NodeAddr {
@@ -948,7 +950,7 @@ impl SubstratumRealNode {
     }
 
     fn extract_node_reference(name: &String) -> Result<NodeReference, String> {
-        let regex = Regex::new(r"SubstratumNode local descriptor: ([^:]+:[\d.]+:[\d,]*)").unwrap();
+        let regex = Regex::new(r"SubstratumNode local descriptor: ([^:]+:[\d.]*:[\d,]*)").unwrap();
         let mut retries_left = 5;
         loop {
             println!("Checking for {} startup", name);
@@ -1062,12 +1064,12 @@ mod tests {
         let neighbors = vec![
             NodeReference::new(
                 one_neighbor_key.clone(),
-                one_neighbor_ip_addr.clone(),
+                Some (one_neighbor_ip_addr.clone()),
                 one_neighbor_ports.clone(),
             ),
             NodeReference::new(
                 another_neighbor_key.clone(),
-                another_neighbor_ip_addr.clone(),
+                Some (another_neighbor_ip_addr.clone()),
                 another_neighbor_ports.clone(),
             ),
         ];
@@ -1097,7 +1099,7 @@ mod tests {
             dns_servers: vec![IpAddr::from_str("255.255.255.255").unwrap()],
             neighbors: vec![NodeReference::new(
                 PublicKey::new(&[255]),
-                IpAddr::from_str("255.255.255.255").unwrap(),
+                Some (IpAddr::from_str("255.255.255.255").unwrap()),
                 vec![255],
             )],
             clandestine_port_opt: Some(1234),
@@ -1133,12 +1135,12 @@ mod tests {
         let neighbors = vec![
             NodeReference::new(
                 one_neighbor_key.clone(),
-                one_neighbor_ip_addr.clone(),
+                Some (one_neighbor_ip_addr.clone()),
                 one_neighbor_ports.clone(),
             ),
             NodeReference::new(
                 another_neighbor_key.clone(),
-                another_neighbor_ip_addr.clone(),
+                Some (another_neighbor_ip_addr.clone()),
                 another_neighbor_ports.clone(),
             ),
         ];
@@ -1174,12 +1176,12 @@ mod tests {
     fn can_make_args() {
         let one_neighbor = NodeReference::new(
             PublicKey::new(&[1, 2, 3, 4]),
-            IpAddr::from_str("4.5.6.7").unwrap(),
+            Some (IpAddr::from_str("4.5.6.7").unwrap()),
             vec![1234, 2345],
         );
         let another_neighbor = NodeReference::new(
             PublicKey::new(&[2, 3, 4, 5]),
-            IpAddr::from_str("5.6.7.8").unwrap(),
+            Some (IpAddr::from_str("5.6.7.8").unwrap()),
             vec![3456, 4567],
         );
 

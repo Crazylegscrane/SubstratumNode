@@ -32,7 +32,7 @@ impl Debug for NeighborhoodDatabase {
 impl NeighborhoodDatabase {
     pub fn new(
         public_key: &PublicKey,
-        node_addr: &NodeAddr,
+        node_addr_opt: Option<NodeAddr>,
         earning_wallet: Wallet,
         rate_pack: RatePack,
         cryptde: &dyn CryptDE,
@@ -44,9 +44,11 @@ impl NeighborhoodDatabase {
         };
 
         let mut node_record = NodeRecord::new(public_key, earning_wallet, rate_pack, 0, cryptde);
-        node_record
-            .set_node_addr(node_addr)
-            .expect("Failed to set_node_addr");
+        if let Some (node_addr) = node_addr_opt {
+            node_record
+                .set_node_addr(&node_addr)
+                .expect("Failed to set_node_addr");
+        }
         node_record.signed_gossip = PlainData::from(
             serde_cbor::ser::to_vec(&node_record.inner).expect("Couldn't serialize"),
         );
@@ -321,7 +323,7 @@ mod tests {
 
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            &this_node.node_addr_opt().unwrap(),
+            this_node.node_addr_opt(),
             this_node.earning_wallet(),
             rate_pack(1234),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
@@ -393,7 +395,7 @@ mod tests {
         let another_node = make_node_record(5678, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            &this_node.node_addr_opt().unwrap(),
+            this_node.node_addr_opt(),
             Wallet::from_str("0x546900db8d6e0937497133d1ae6fdf5f4b75bcd0").unwrap(),
             rate_pack(1234),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
@@ -448,7 +450,7 @@ mod tests {
         let another_node = make_node_record(3456, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            &this_node.node_addr_opt().unwrap(),
+            this_node.node_addr_opt(),
             Wallet::from_str("0x0000000000000000000000000000000000001234").unwrap(),
             rate_pack(100),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
@@ -577,7 +579,7 @@ mod tests {
         let other_node = make_node_record(2345, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            &this_node.node_addr_opt().unwrap(),
+            this_node.node_addr_opt(),
             Wallet::from_str("0x0000000000000000000000000000000000001234").unwrap(),
             rate_pack(100),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
@@ -691,7 +693,7 @@ mod tests {
         let this_node = make_node_record(123, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            &this_node.node_addr_opt().unwrap(),
+            this_node.node_addr_opt(),
             Wallet::from_str("0x0000000000000000000000000000000000000123").unwrap(),
             rate_pack(100),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
@@ -738,7 +740,7 @@ mod tests {
         let this_node = make_node_record(123, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            &this_node.node_addr_opt().unwrap(),
+            this_node.node_addr_opt(),
             Wallet::from_str("0x0000000000000000000000000000000000000123").unwrap(),
             rate_pack(100),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),

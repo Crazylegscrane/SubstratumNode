@@ -40,7 +40,7 @@ use crate::sub_lib::neighborhood::NodeQueryResponseMetadata;
 use crate::sub_lib::neighborhood::RemoveNeighborMessage;
 use crate::sub_lib::neighborhood::RouteQueryMessage;
 use crate::sub_lib::neighborhood::RouteQueryResponse;
-use crate::sub_lib::neighborhood::{sentinel_ip_addr, NodeRecordMetadataMessage};
+use crate::sub_lib::neighborhood::{NodeRecordMetadataMessage};
 use crate::sub_lib::node_addr::NodeAddr;
 use crate::sub_lib::peer_actors::{BindMessage, StartMessage};
 use crate::sub_lib::route::Route;
@@ -364,20 +364,25 @@ impl TryFrom<GossipNodeRecord> for AccessibleGossipRecord {
 impl Neighborhood {
     pub fn new(cryptde: &'static dyn CryptDE, config: &BootstrapperConfig) -> Self {
         let neighborhood_config = &config.neighborhood_config;
-        if neighborhood_config.local_ip_addr == sentinel_ip_addr()
+        // TODO: Change this logic. Now a decentralized Node can have no --ip if it has --originate-only.
+        if neighborhood_config.local_ip_addr_opt.is_none()
             && !neighborhood_config.neighbor_configs.is_empty()
         {
             panic!("A SubstratumNode without an --ip setting is not decentralized and cannot have a --neighbors setting")
         }
         let gossip_acceptor: Box<dyn GossipAcceptor> = Box::new(GossipAcceptorReal::new(cryptde));
         let gossip_producer = Box::new(GossipProducerReal::new());
-        let local_node_addr = NodeAddr::new(
-            &neighborhood_config.local_ip_addr,
-            &neighborhood_config.clandestine_port_list,
-        );
         let neighborhood_database = NeighborhoodDatabase::new(
             &cryptde.public_key(),
-            &local_node_addr,
+            match &neighborhood_config.local_ip_addr_opt {
+                Some (local_ip_addr) => {
+                    Some (NodeAddr::new (
+                        local_ip_addr,
+                        &neighborhood_config.clandestine_port_list,
+                    ))
+                },
+                None => None,
+            },
             config.earning_wallet.clone(),
             neighborhood_config.rate_pack.clone(),
             cryptde,
@@ -959,7 +964,7 @@ mod tests {
     use crate::sub_lib::hop::LiveHop;
     use crate::sub_lib::hopper::MessageType;
     use crate::sub_lib::neighborhood::ExpectedServices;
-    use crate::sub_lib::neighborhood::{sentinel_ip_addr, NeighborhoodConfig};
+    use crate::sub_lib::neighborhood::{NeighborhoodConfig};
     use crate::sub_lib::stream_handler_pool::TransmitDataMsg;
     use crate::test_utils::logging::init_test_logging;
     use crate::test_utils::logging::TestLogHandler;
@@ -1005,7 +1010,7 @@ mod tests {
                         node_addr: neighbor.node_addr_opt().unwrap().clone(),
                     }
                     .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr: sentinel_ip_addr(),
+                    local_ip_addr_opt: None,
                     clandestine_port_list: vec![0],
                     rate_pack: rate_pack(100),
                 },
@@ -1026,7 +1031,7 @@ mod tests {
             &bc_from_nc_plus(
                 NeighborhoodConfig {
                     neighbor_configs: vec![],
-                    local_ip_addr: this_node_addr.ip_addr(),
+                    local_ip_addr_opt: Some (this_node_addr.ip_addr()),
                     clandestine_port_list: this_node_addr.ports().clone(),
                     rate_pack: rate_pack(100),
                 },
@@ -1055,7 +1060,7 @@ mod tests {
             &bc_from_nc_plus(
                 NeighborhoodConfig {
                     neighbor_configs: vec![],
-                    local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                     clandestine_port_list: vec![5678],
                     rate_pack: rate_pack(100),
                 },
@@ -1094,7 +1099,7 @@ mod tests {
             &bc_from_nc_plus(
                 NeighborhoodConfig {
                     neighbor_configs: vec![String::from("ooga"), String::from("booga")],
-                    local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                     clandestine_port_list: vec![5678],
                     rate_pack: rate_pack(100),
                 },
@@ -1138,7 +1143,7 @@ mod tests {
                         }
                         .to_string(cryptde, DEFAULT_CHAIN_ID),
                     ],
-                    local_ip_addr: this_node_addr.ip_addr(),
+                    local_ip_addr_opt: Some (this_node_addr.ip_addr()),
                     clandestine_port_list: this_node_addr.ports().clone(),
                     rate_pack: rate_pack(100),
                 },
@@ -1213,7 +1218,7 @@ mod tests {
                         ),
                     }
                     .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                     clandestine_port_list: vec![5678],
                     rate_pack: rate_pack(100),
                 },
@@ -1246,7 +1251,7 @@ mod tests {
             &bc_from_nc_plus(
                 NeighborhoodConfig {
                     neighbor_configs: vec![node_record_to_neighbor_config(&one_neighbor, cryptde)],
-                    local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                     clandestine_port_list: vec![5678],
                     rate_pack: rate_pack(100),
                 },
@@ -1298,7 +1303,7 @@ mod tests {
                         ),
                     }
                     .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                     clandestine_port_list: vec![5678],
                     rate_pack: rate_pack(100),
                 },
@@ -1336,7 +1341,7 @@ mod tests {
                         node_addr: node_record.node_addr_opt().unwrap().clone(),
                     }
                     .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr: node_record.node_addr_opt().as_ref().unwrap().ip_addr(),
+                    local_ip_addr_opt: Some (node_record.node_addr_opt().as_ref().unwrap().ip_addr()),
                     clandestine_port_list: node_record
                         .node_addr_opt()
                         .as_ref()
@@ -2030,7 +2035,7 @@ mod tests {
                 &bc_from_nc_plus(
                     NeighborhoodConfig {
                         neighbor_configs: vec![],
-                        local_ip_addr: this_node_inside.node_addr_opt().unwrap().ip_addr(),
+                        local_ip_addr_opt: Some (this_node_inside.node_addr_opt().unwrap().ip_addr()),
                         clandestine_port_list: this_node_inside.node_addr_opt().unwrap().ports(),
                         rate_pack: rate_pack(100),
                     },
@@ -2522,7 +2527,7 @@ mod tests {
                 &bc_from_nc_plus(
                     NeighborhoodConfig {
                         neighbor_configs: vec![],
-                        local_ip_addr: this_node_inside.node_addr_opt().unwrap().ip_addr(),
+                        local_ip_addr_opt: Some (this_node_inside.node_addr_opt().unwrap().ip_addr()),
                         clandestine_port_list: this_node_inside.node_addr_opt().unwrap().ports(),
                         rate_pack: rate_pack(100),
                     },
@@ -2575,7 +2580,7 @@ mod tests {
                         node_addr: neighbor_inside.node_addr_opt().unwrap().clone(),
                     }
                     .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                     clandestine_port_list: vec![1234],
                     rate_pack: rate_pack(100),
                 },
@@ -2763,7 +2768,7 @@ mod tests {
                             ),
                         }
                         .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                        local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                        local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                         clandestine_port_list: vec![5678],
                         rate_pack: rate_pack(100),
                     },
@@ -2825,7 +2830,7 @@ mod tests {
                             &one_neighbor,
                             cryptde,
                         )],
-                        local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                        local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                         clandestine_port_list: vec![5678],
                         rate_pack: rate_pack(100),
                     },
@@ -2888,7 +2893,7 @@ mod tests {
                             ),
                         }
                         .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                        local_ip_addr: IpAddr::from_str("5.4.3.2").unwrap(),
+                        local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
                         clandestine_port_list: vec![5678],
                         rate_pack: rate_pack(100),
                     },
@@ -2949,7 +2954,7 @@ mod tests {
                         node_addr: node_record.node_addr_opt().unwrap().clone(),
                     }
                     .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr: node_record.node_addr_opt().as_ref().unwrap().ip_addr(),
+                    local_ip_addr_opt: Some (node_record.node_addr_opt().as_ref().unwrap().ip_addr()),
                     clandestine_port_list: node_record
                         .node_addr_opt()
                         .as_ref()
@@ -3015,7 +3020,7 @@ mod tests {
                         node_addr: node_record.node_addr_opt().unwrap().clone(),
                     }
                     .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr: node_record.node_addr_opt().as_ref().unwrap().ip_addr(),
+                    local_ip_addr_opt: Some (node_record.node_addr_opt().as_ref().unwrap().ip_addr()),
                     clandestine_port_list: node_record
                         .node_addr_opt()
                         .as_ref()

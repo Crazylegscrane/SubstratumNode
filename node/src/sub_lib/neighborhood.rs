@@ -16,10 +16,7 @@ use actix::Recipient;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::net::IpAddr;
-use std::net::Ipv4Addr;
 use std::str::FromStr;
-
-pub const SENTINEL_IP_OCTETS: [u8; 4] = [255, 255, 255, 255];
 
 pub const DEFAULT_RATE_PACK: RatePack = RatePack {
     routing_byte_rate: 100,
@@ -34,15 +31,6 @@ pub const ZERO_RATE_PACK: RatePack = RatePack {
     exit_byte_rate: 0,
     exit_service_rate: 0,
 };
-
-pub fn sentinel_ip_addr() -> IpAddr {
-    IpAddr::V4(Ipv4Addr::new(
-        SENTINEL_IP_OCTETS[0],
-        SENTINEL_IP_OCTETS[1],
-        SENTINEL_IP_OCTETS[2],
-        SENTINEL_IP_OCTETS[3],
-    ))
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeDescriptor {
@@ -93,14 +81,15 @@ impl NodeDescriptor {
 #[derive(Clone, Debug, PartialEq)]
 pub struct NeighborhoodConfig {
     pub neighbor_configs: Vec<String>,
-    pub local_ip_addr: IpAddr,
+    pub local_ip_addr_opt: Option<IpAddr>,
     pub clandestine_port_list: Vec<u16>,
     pub rate_pack: RatePack,
 }
 
 impl NeighborhoodConfig {
+    // TODO: Revamp this logic
     pub fn is_decentralized(&self) -> bool {
-        (self.local_ip_addr != sentinel_ip_addr()) && !self.clandestine_port_list.is_empty()
+        (self.local_ip_addr_opt.is_some()) && !self.clandestine_port_list.is_empty()
     }
 }
 
@@ -361,7 +350,7 @@ mod tests {
         let subject = NeighborhoodConfig {
             neighbor_configs: vec!["booga".to_string()],
             rate_pack: rate_pack(100),
-            local_ip_addr: sentinel_ip_addr(),
+            local_ip_addr_opt: None,
             clandestine_port_list: vec![1234],
         };
 
@@ -375,7 +364,7 @@ mod tests {
         let subject = NeighborhoodConfig {
             neighbor_configs: vec!["booga".to_string()],
             rate_pack: rate_pack(100),
-            local_ip_addr: IpAddr::from_str("1.2.3.4").unwrap(),
+            local_ip_addr_opt: Some (IpAddr::from_str("1.2.3.4").unwrap()),
             clandestine_port_list: vec![],
         };
 
@@ -389,7 +378,7 @@ mod tests {
         let subject = NeighborhoodConfig {
             neighbor_configs: vec![],
             rate_pack: rate_pack(100),
-            local_ip_addr: IpAddr::from_str("1.2.3.4").unwrap(),
+            local_ip_addr_opt: Some (IpAddr::from_str("1.2.3.4").unwrap()),
             clandestine_port_list: vec![1234],
         };
 
