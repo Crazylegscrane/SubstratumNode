@@ -246,6 +246,7 @@ fn from_substratum_node_to_node_record(substratum_node: &dyn SubstratumNode) -> 
             earning_wallet: substratum_node.earning_wallet(),
             rate_pack: substratum_node.rate_pack(),
             neighbors: BTreeSet::new(),
+            originate_only: false,
             version: 0,
         },
         metadata: NodeRecordMetadata {

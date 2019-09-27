@@ -21,12 +21,13 @@ pub struct NodeRecordInner {
     pub earning_wallet: Wallet,
     pub rate_pack: RatePack,
     pub neighbors: BTreeSet<PublicKey>,
+    pub originate_only: bool,
     pub version: u32,
 }
 
 impl NodeRecordInner {
     pub fn data_version() -> DataVersion {
-        DataVersion::new(0, 0).expect("Internal Error")
+        DataVersion::new(1, 0).expect("Internal Error")
     }
 }
 
@@ -78,6 +79,7 @@ impl NodeRecord {
                 earning_wallet,
                 rate_pack,
                 neighbors: BTreeSet::new(),
+                originate_only: false, // TODO: Should this be defaulted like this?
                 version,
             },
             signed_gossip: PlainData::new(&[]),
@@ -188,6 +190,10 @@ impl NodeRecord {
 
     pub fn signature(&self) -> &CryptData {
         &self.signature
+    }
+
+    pub fn is_originate_only (&self) -> bool {
+        unimplemented!("Test-drive me!")
     }
 
     pub fn version(&self) -> u32 {

@@ -394,6 +394,7 @@ impl From<&dyn SubstratumNode> for AccessibleGossipRecord {
                 earning_wallet: substratum_node.earning_wallet(),
                 rate_pack: substratum_node.rate_pack(),
                 neighbors: BTreeSet::new(),
+                originate_only: false,
                 version: 0,
             },
             node_addr_opt: Some(substratum_node.node_addr()),
