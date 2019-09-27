@@ -365,8 +365,8 @@ impl Neighborhood {
     pub fn new(cryptde: &'static dyn CryptDE, config: &BootstrapperConfig) -> Self {
         let neighborhood_config = &config.neighborhood_config;
         // TODO: Change this logic. Now a decentralized Node can have no --ip if it has --originate-only.
-        if neighborhood_config.local_ip_addr_opt.is_none()
-            && !neighborhood_config.neighbor_configs.is_empty()
+        if neighborhood_config.local_ip_addr_opt().is_none()
+            && !neighborhood_config.neighbor_configs().is_empty()
         {
             panic!("A SubstratumNode without an --ip setting is not decentralized and cannot have a --neighbors setting")
         }
@@ -374,17 +374,17 @@ impl Neighborhood {
         let gossip_producer = Box::new(GossipProducerReal::new());
         let neighborhood_database = NeighborhoodDatabase::new(
             &cryptde.public_key(),
-            match &neighborhood_config.local_ip_addr_opt {
+            match &neighborhood_config.local_ip_addr_opt() {
                 Some (local_ip_addr) => {
                     Some (NodeAddr::new (
                         local_ip_addr,
-                        &neighborhood_config.clandestine_port_list,
+                        &neighborhood_config.clandestine_port_list(),
                     ))
                 },
                 None => None,
             },
             config.earning_wallet.clone(),
-            neighborhood_config.rate_pack.clone(),
+            neighborhood_config.rate_pack().clone(),
             cryptde,
         );
 
@@ -398,7 +398,7 @@ impl Neighborhood {
             neighborhood_database,
             consuming_wallet_opt: config.consuming_wallet.clone(),
             next_return_route_id: 0,
-            initial_neighbors: neighborhood_config.neighbor_configs.clone(),
+            initial_neighbors: neighborhood_config.neighbor_configs().clone(),
             logger: Logger::new("Neighborhood"),
             chain_id: config.blockchain_bridge_config.chain_id,
         }
@@ -963,7 +963,7 @@ mod tests {
     use crate::sub_lib::dispatcher::Endpoint;
     use crate::sub_lib::hop::LiveHop;
     use crate::sub_lib::hopper::MessageType;
-    use crate::sub_lib::neighborhood::ExpectedServices;
+    use crate::sub_lib::neighborhood::{ExpectedServices, NeighborhoodMode};
     use crate::sub_lib::neighborhood::{NeighborhoodConfig};
     use crate::sub_lib::stream_handler_pool::TransmitDataMsg;
     use crate::test_utils::logging::init_test_logging;
@@ -992,36 +992,7 @@ mod tests {
     use tokio::prelude::Future;
 
     #[test]
-    #[should_panic(
-        expected = "A SubstratumNode without an --ip setting is not decentralized and cannot have a --neighbors setting"
-    )]
-    fn neighborhood_cannot_be_created_with_neighbors_and_default_ip() {
-        let cryptde = cryptde();
-        let earning_wallet = make_wallet("earning");
-        let consuming_wallet = Some(make_paying_wallet(b"consuming"));
-        let neighbor = make_node_record(1234, true);
-
-        Neighborhood::new(
-            cryptde,
-            &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![NodeDescriptor {
-                        public_key: neighbor.public_key().clone(),
-                        node_addr: neighbor.node_addr_opt().unwrap().clone(),
-                    }
-                    .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr_opt: None,
-                    clandestine_port_list: vec![0],
-                    rate_pack: rate_pack(100),
-                },
-                earning_wallet.clone(),
-                consuming_wallet.clone(),
-            ),
-        );
-    }
-
-    #[test]
-    fn node_neighborhood_creates_single_node_database() {
+    fn node_with_zero_hop_config_creates_single_node_database() {
         let cryptde = cryptde();
         let earning_wallet = make_wallet("earning");
         let this_node_addr = NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]);
@@ -1029,12 +1000,7 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![],
-                    local_ip_addr_opt: Some (this_node_addr.ip_addr()),
-                    clandestine_port_list: this_node_addr.ports().clone(),
-                    rate_pack: rate_pack(100),
-                },
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop},
                 earning_wallet.clone(),
                 None,
             ),
@@ -1048,7 +1014,7 @@ mod tests {
     }
 
     #[test]
-    fn node_with_no_neighbor_configs_ignores_start_message() {
+    fn node_with_zero_hop_config_ignores_start_message() {
         init_test_logging();
         let cryptde = cryptde();
         let earning_wallet = make_wallet("earning");
@@ -1058,12 +1024,7 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![],
-                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                    clandestine_port_list: vec![5678],
-                    rate_pack: rate_pack(100),
-                },
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop},
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1097,12 +1058,11 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![String::from("ooga"), String::from("booga")],
-                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                    clandestine_port_list: vec![5678],
-                    rate_pack: rate_pack(100),
-                },
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                    vec![String::from("ooga"), String::from("booga")],
+                    rate_pack(100),
+                )},
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1130,8 +1090,9 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    this_node_addr.clone(),
+                    vec![
                         NodeDescriptor {
                             public_key: one_neighbor_node.public_key().clone(),
                             node_addr: one_neighbor_node.node_addr_opt().unwrap().clone(),
@@ -1143,10 +1104,8 @@ mod tests {
                         }
                         .to_string(cryptde, DEFAULT_CHAIN_ID),
                     ],
-                    local_ip_addr_opt: Some (this_node_addr.ip_addr()),
-                    clandestine_port_list: this_node_addr.ports().clone(),
-                    rate_pack: rate_pack(100),
-                },
+                    rate_pack(100),
+                )},
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1209,19 +1168,17 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![NodeDescriptor {
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                    vec![NodeDescriptor {
                         public_key: PublicKey::new(&b"booga"[..]),
                         node_addr: NodeAddr::new(
                             &IpAddr::from_str("1.2.3.4").unwrap(),
                             &vec![1234, 2345],
                         ),
-                    }
-                    .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                    clandestine_port_list: vec![5678],
-                    rate_pack: rate_pack(100),
-                },
+                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+                    rate_pack(100),
+                )},
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1249,12 +1206,11 @@ mod tests {
         let mut subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![node_record_to_neighbor_config(&one_neighbor, cryptde)],
-                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                    clandestine_port_list: vec![5678],
-                    rate_pack: rate_pack(100),
-                },
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                    vec![node_record_to_neighbor_config(&one_neighbor, cryptde)],
+                    rate_pack(100),
+                )},
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1294,19 +1250,17 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![NodeDescriptor {
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                    vec![NodeDescriptor {
                         public_key: PublicKey::new(&b"booga"[..]),
                         node_addr: NodeAddr::new(
                             &IpAddr::from_str("1.2.3.4").unwrap(),
                             &vec![1234, 2345],
                         ),
-                    }
-                    .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                    clandestine_port_list: vec![5678],
-                    rate_pack: rate_pack(100),
-                },
+                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+                    rate_pack(100),
+                )},
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1335,21 +1289,14 @@ mod tests {
         let mut subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![NodeDescriptor {
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    node_record.node_addr_opt().unwrap(),
+                    vec![NodeDescriptor {
                         public_key: node_record.public_key().clone(),
                         node_addr: node_record.node_addr_opt().unwrap().clone(),
-                    }
-                    .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr_opt: Some (node_record.node_addr_opt().as_ref().unwrap().ip_addr()),
-                    clandestine_port_list: node_record
-                        .node_addr_opt()
-                        .as_ref()
-                        .unwrap()
-                        .ports()
-                        .clone(),
-                    rate_pack: rate_pack(100),
-                },
+                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+                    rate_pack(100),
+                )},
                 node_record.earning_wallet(),
                 None,
             ),
@@ -2033,12 +1980,11 @@ mod tests {
             let mut subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {
-                        neighbor_configs: vec![],
-                        local_ip_addr_opt: Some (this_node_inside.node_addr_opt().unwrap().ip_addr()),
-                        clandestine_port_list: this_node_inside.node_addr_opt().unwrap().ports(),
-                        rate_pack: rate_pack(100),
-                    },
+                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                        this_node_inside.node_addr_opt().unwrap(),
+                        vec![],
+                        rate_pack(100),
+                    )},
                     earning_wallet.clone(),
                     consuming_wallet.clone(),
                 ),
@@ -2525,12 +2471,11 @@ mod tests {
             let subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {
-                        neighbor_configs: vec![],
-                        local_ip_addr_opt: Some (this_node_inside.node_addr_opt().unwrap().ip_addr()),
-                        clandestine_port_list: this_node_inside.node_addr_opt().unwrap().ports(),
-                        rate_pack: rate_pack(100),
-                    },
+                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                        this_node_inside.node_addr_opt().unwrap(),
+                        vec![],
+                        rate_pack(100),
+                    )},
                     this_node_inside.earning_wallet(),
                     None,
                 ),
@@ -2574,16 +2519,14 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![NodeDescriptor {
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![1234]),
+                    vec![NodeDescriptor {
                         public_key: neighbor_inside.public_key().clone(),
                         node_addr: neighbor_inside.node_addr_opt().unwrap().clone(),
-                    }
-                    .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                    clandestine_port_list: vec![1234],
-                    rate_pack: rate_pack(100),
-                },
+                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+                    rate_pack(100),
+                )},
                 NodeRecord::earning_wallet_from_key(&cryptde.public_key()),
                 NodeRecord::consuming_wallet_from_key(&cryptde.public_key()),
             ),
@@ -2759,19 +2702,17 @@ mod tests {
             let subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {
-                        neighbor_configs: vec![NodeDescriptor {
+                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                        NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                        vec![NodeDescriptor {
                             public_key: PublicKey::new(&b"booga"[..]),
                             node_addr: NodeAddr::new(
                                 &IpAddr::from_str("1.2.3.4").unwrap(),
                                 &vec![1234, 2345],
                             ),
-                        }
-                        .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                        local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                        clandestine_port_list: vec![5678],
-                        rate_pack: rate_pack(100),
-                    },
+                        }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+                        rate_pack(100),
+                    )},
                     earning_wallet.clone(),
                     consuming_wallet.clone(),
                 ),
@@ -2825,15 +2766,14 @@ mod tests {
             let mut subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {
-                        neighbor_configs: vec![node_record_to_neighbor_config(
+                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                        NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                        vec![node_record_to_neighbor_config(
                             &one_neighbor,
                             cryptde,
                         )],
-                        local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                        clandestine_port_list: vec![5678],
-                        rate_pack: rate_pack(100),
-                    },
+                        rate_pack(100),
+                    )},
                     earning_wallet.clone(),
                     consuming_wallet.clone(),
                 ),
@@ -2884,19 +2824,17 @@ mod tests {
             let subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {
-                        neighbor_configs: vec![NodeDescriptor {
+                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                        NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                        vec![NodeDescriptor {
                             public_key: PublicKey::new(&b"booga"[..]),
                             node_addr: NodeAddr::new(
                                 &IpAddr::from_str("1.2.3.4").unwrap(),
                                 &vec![1234, 2345],
                             ),
-                        }
-                        .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                        local_ip_addr_opt: Some (IpAddr::from_str("5.4.3.2").unwrap()),
-                        clandestine_port_list: vec![5678],
-                        rate_pack: rate_pack(100),
-                    },
+                        }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+                        rate_pack(100),
+                    )},
                     earning_wallet.clone(),
                     consuming_wallet.clone(),
                 ),
@@ -2948,21 +2886,14 @@ mod tests {
             let recipient: Recipient<DispatcherNodeQueryResponse> =
                 addr.recipient::<DispatcherNodeQueryResponse>();
             let config = bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![NodeDescriptor {
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    node_record.node_addr_opt().unwrap(),
+                    vec![NodeDescriptor {
                         public_key: node_record.public_key().clone(),
                         node_addr: node_record.node_addr_opt().unwrap().clone(),
-                    }
-                    .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr_opt: Some (node_record.node_addr_opt().as_ref().unwrap().ip_addr()),
-                    clandestine_port_list: node_record
-                        .node_addr_opt()
-                        .as_ref()
-                        .unwrap()
-                        .ports()
-                        .clone(),
-                    rate_pack: rate_pack(100),
-                },
+                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+                    rate_pack(100),
+                )},
                 node_record.earning_wallet(),
                 None,
             );
@@ -3014,21 +2945,14 @@ mod tests {
             let addr: Addr<Recorder> = recorder.start();
             let recipient: Recipient<UiCarrierMessage> = addr.recipient::<UiCarrierMessage>();
             let config = bc_from_nc_plus(
-                NeighborhoodConfig {
-                    neighbor_configs: vec![NodeDescriptor {
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    node_record.node_addr_opt().unwrap(),
+                    vec![NodeDescriptor {
                         public_key: node_record.public_key().clone(),
                         node_addr: node_record.node_addr_opt().unwrap().clone(),
-                    }
-                    .to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    local_ip_addr_opt: Some (node_record.node_addr_opt().as_ref().unwrap().ip_addr()),
-                    clandestine_port_list: node_record
-                        .node_addr_opt()
-                        .as_ref()
-                        .unwrap()
-                        .ports()
-                        .clone(),
-                    rate_pack: rate_pack(100),
-                },
+                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+                    rate_pack(100),
+                )},
                 node_record.earning_wallet(),
                 None,
             );

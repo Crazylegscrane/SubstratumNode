@@ -8,7 +8,7 @@ use crate::neighborhood::{AccessibleGossipRecord, Neighborhood};
 use crate::sub_lib::cryptde::PublicKey;
 use crate::sub_lib::cryptde::{CryptDE, PlainData};
 use crate::sub_lib::cryptde_null::CryptDENull;
-use crate::sub_lib::neighborhood::{NeighborhoodConfig, NodeDescriptor};
+use crate::sub_lib::neighborhood::{NeighborhoodConfig, NodeDescriptor, NeighborhoodMode};
 use crate::sub_lib::node_addr::NodeAddr;
 use crate::sub_lib::wallet::Wallet;
 use crate::test_utils::*;
@@ -68,23 +68,18 @@ pub fn neighborhood_from_nodes(
         panic!("Neighborhood must be built on root node with public key from cryptde()");
     }
     let mut config = BootstrapperConfig::new();
-    config.neighborhood_config = NeighborhoodConfig {
-        neighbor_configs: match neighbor_opt {
-            None => vec![],
-            Some(neighbor) => vec![NodeDescriptor {
+    config.neighborhood_config = match neighbor_opt {
+        Some (neighbor) => NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+            root.node_addr_opt ().expect ("Test-drive me!"),
+            vec![NodeDescriptor {
                 public_key: neighbor.public_key().clone(),
                 node_addr: neighbor
                     .node_addr_opt()
                     .expect("Neighbor has to have NodeAddr"),
-            }
-            .to_string(cryptde, DEFAULT_CHAIN_ID)],
-        },
-        local_ip_addr_opt: match root.node_addr_opt() {
-            Some (node_addr) => Some (node_addr.ip_addr()),
-            None => None
-        },
-        clandestine_port_list: root.node_addr_opt().unwrap().ports(),
-        rate_pack: root.rate_pack().clone(),
+            }.to_string(cryptde, DEFAULT_CHAIN_ID)],
+            root.rate_pack().clone(),
+        )},
+        None => NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop}
     };
     config.earning_wallet = root.earning_wallet();
     config.consuming_wallet = Some(make_paying_wallet(b"consuming"));

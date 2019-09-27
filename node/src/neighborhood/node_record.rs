@@ -193,7 +193,7 @@ impl NodeRecord {
     }
 
     pub fn is_originate_only (&self) -> bool {
-        unimplemented!("Test-drive me!")
+        self.inner.originate_only
     }
 
     pub fn version(&self) -> u32 {

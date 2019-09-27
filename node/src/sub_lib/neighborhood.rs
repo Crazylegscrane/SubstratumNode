@@ -17,6 +17,7 @@ use serde_derive::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::net::IpAddr;
 use std::str::FromStr;
+use lazy_static::lazy_static;
 
 pub const DEFAULT_RATE_PACK: RatePack = RatePack {
     routing_byte_rate: 100,
@@ -36,6 +37,14 @@ pub const ZERO_RATE_PACK: RatePack = RatePack {
 pub struct NodeDescriptor {
     pub public_key: PublicKey,
     pub node_addr: NodeAddr,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum NeighborhoodMode {
+    Standard (NodeAddr, Vec<String>, RatePack),
+    ZeroHop,
+    OriginateOnly (Vec<String>, RatePack),
+    ConsumeOnly (Vec<String>),
 }
 
 impl NodeDescriptor {
@@ -80,16 +89,49 @@ impl NodeDescriptor {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NeighborhoodConfig {
-    pub neighbor_configs: Vec<String>,
-    pub local_ip_addr_opt: Option<IpAddr>,
-    pub clandestine_port_list: Vec<u16>,
-    pub rate_pack: RatePack,
+    pub neighborhood_mode: NeighborhoodMode,
+}
+
+lazy_static! {
+    static ref EMPTY_CONFIGS: Vec<String> = vec![];
 }
 
 impl NeighborhoodConfig {
-    // TODO: Revamp this logic
     pub fn is_decentralized(&self) -> bool {
-        (self.local_ip_addr_opt.is_some()) && !self.clandestine_port_list.is_empty()
+        self.neighborhood_mode != NeighborhoodMode::ZeroHop
+    }
+
+    pub fn neighbor_configs(&self) -> &Vec<String> {
+        match &self.neighborhood_mode {
+            NeighborhoodMode::Standard(_, neighbor_configs, _) => neighbor_configs,
+            NeighborhoodMode::ZeroHop => &EMPTY_CONFIGS,
+            NeighborhoodMode::OriginateOnly(neighbor_configs, _) => neighbor_configs,
+            NeighborhoodMode::ConsumeOnly(neighbor_configs) => neighbor_configs,
+        }
+    }
+
+    // TODO: Maybe combine this and the next function into node_addr_opt()
+    pub fn local_ip_addr_opt(&self) -> Option<IpAddr> {
+        match &self.neighborhood_mode {
+            NeighborhoodMode::Standard(node_addr, _, _) => Some (node_addr.ip_addr()),
+            _ => None,
+        }
+    }
+
+    pub fn clandestine_port_list(&self) -> Vec<u16> {
+        match &self.neighborhood_mode {
+            NeighborhoodMode::Standard(node_addr, _, _) => node_addr.ports().clone(),
+            _ => vec![],
+        }
+    }
+
+    // TODO We may want to change this to return an Option. Or maybe not.
+    pub fn rate_pack(&self) -> &RatePack {
+        match &self.neighborhood_mode {
+            NeighborhoodMode::Standard(_, _, rate_pack) => rate_pack,
+            NeighborhoodMode::OriginateOnly(_, rate_pack) => rate_pack,
+            _ => &ZERO_RATE_PACK
+        }
     }
 }
 
@@ -228,6 +270,7 @@ mod tests {
     use crate::test_utils::{cryptde, DEFAULT_CHAIN_ID};
     use actix::Actor;
     use std::str::FromStr;
+    use crate::sub_lib::utils::localhost;
 
     pub fn rate_pack(base_rate: u64) -> RatePack {
         RatePack {
@@ -346,44 +389,59 @@ mod tests {
     }
 
     #[test]
-    fn neighborhood_config_is_not_decentralized_if_the_sentinel_ip_address_is_used() {
+    fn standard_mode_results() {
         let subject = NeighborhoodConfig {
-            neighbor_configs: vec!["booga".to_string()],
-            rate_pack: rate_pack(100),
-            local_ip_addr_opt: None,
-            clandestine_port_list: vec![1234],
+            neighborhood_mode: NeighborhoodMode::Standard (
+                NodeAddr::new (&localhost(), &vec![1234,  2345]),
+                vec!["one neighbor".to_string(), "another neighbor".to_string()],
+                rate_pack (100),
+            )
         };
 
-        let result = subject.is_decentralized();
-
-        assert_eq!(result, false);
+        assert_eq! (subject.local_ip_addr_opt(), Some (localhost()));
+        assert_eq! (subject.clandestine_port_list(), vec![1234u16, 2345u16]);
+        assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
+        assert_eq! (subject.rate_pack(), &rate_pack (100));
     }
 
     #[test]
-    fn neighborhood_config_is_not_decentralized_if_there_are_no_clandestine_ports() {
+    fn zero_hop_mode_results() {
         let subject = NeighborhoodConfig {
-            neighbor_configs: vec!["booga".to_string()],
-            rate_pack: rate_pack(100),
-            local_ip_addr_opt: Some (IpAddr::from_str("1.2.3.4").unwrap()),
-            clandestine_port_list: vec![],
+            neighborhood_mode: NeighborhoodMode::ZeroHop
         };
 
-        let result = subject.is_decentralized();
-
-        assert_eq!(result, false);
+        assert_eq! (subject.local_ip_addr_opt(), None);
+        assert! (subject.clandestine_port_list().is_empty());
+        assert! (subject.neighbor_configs().is_empty());
+        assert_eq! (subject.rate_pack(), &ZERO_RATE_PACK);
     }
 
     #[test]
-    fn neighborhood_config_is_decentralized_if_local_ip_addr_and_clandestine_port() {
+    fn originate_only_mode_results() {
         let subject = NeighborhoodConfig {
-            neighbor_configs: vec![],
-            rate_pack: rate_pack(100),
-            local_ip_addr_opt: Some (IpAddr::from_str("1.2.3.4").unwrap()),
-            clandestine_port_list: vec![1234],
+            neighborhood_mode: NeighborhoodMode::OriginateOnly (
+                vec!["one neighbor".to_string(), "another neighbor".to_string()],
+                rate_pack (100),
+            )
         };
 
-        let result = subject.is_decentralized();
+        assert_eq! (subject.local_ip_addr_opt(), None);
+        assert! (subject.clandestine_port_list().is_empty());
+        assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
+        assert_eq! (subject.rate_pack(), &rate_pack (100));
+    }
 
-        assert_eq!(result, true);
+    #[test]
+    fn consume_only_mode_results() {
+        let subject = NeighborhoodConfig {
+            neighborhood_mode: NeighborhoodMode::ConsumeOnly (
+                vec!["one neighbor".to_string(), "another neighbor".to_string()],
+            )
+        };
+
+        assert_eq! (subject.local_ip_addr_opt(), None);
+        assert! (subject.clandestine_port_list().is_empty());
+        assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
+        assert_eq! (subject.rate_pack(), &ZERO_RATE_PACK);
     }
 }

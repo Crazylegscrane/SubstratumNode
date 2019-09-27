@@ -27,8 +27,7 @@ use crate::sub_lib::cryptde_null::CryptDENull;
 use crate::sub_lib::cryptde_real::CryptDEReal;
 use crate::sub_lib::logger::Logger;
 use crate::sub_lib::main_tools::StdStreams;
-use crate::sub_lib::neighborhood::NeighborhoodConfig;
-use crate::sub_lib::neighborhood::DEFAULT_RATE_PACK;
+use crate::sub_lib::neighborhood::{NeighborhoodConfig, NeighborhoodMode};
 use crate::sub_lib::neighborhood::{NodeDescriptor};
 use crate::sub_lib::node_addr::NodeAddr;
 use crate::sub_lib::socket_server::SocketServer;
@@ -41,7 +40,7 @@ use log::LevelFilter;
 use std::collections::HashMap;
 use std::env::var;
 use std::fmt::{Debug, Error, Formatter};
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -261,12 +260,7 @@ impl BootstrapperConfig {
             // These fields can be set while privileged without penalty
             log_level: LevelFilter::Off,
             dns_servers: vec![],
-            neighborhood_config: NeighborhoodConfig {
-                neighbor_configs: vec![],
-                local_ip_addr_opt: None,
-                clandestine_port_list: vec![],
-                rate_pack: DEFAULT_RATE_PACK.clone(),
-            },
+            neighborhood_config: NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop},
             accountant_config: AccountantConfig {
                 payable_scan_interval: Duration::from_secs(DEFAULT_PAYABLE_SCAN_INTERVAL),
                 payment_received_scan_interval: Duration::from_secs(
@@ -370,10 +364,10 @@ impl SocketServer<BootstrapperConfig> for Bootstrapper {
         );
         self.config.ui_gateway_config.node_descriptor = Bootstrapper::report_local_descriptor(
             cryptde_ref,
-            self.config.neighborhood_config.local_ip_addr_opt,
+            self.config.neighborhood_config.local_ip_addr_opt(),
             self.config
                 .neighborhood_config
-                .clandestine_port_list
+                .clandestine_port_list()
                 .clone(),
             streams,
             self.config.blockchain_bridge_config.chain_id,
@@ -468,17 +462,26 @@ impl Bootstrapper {
             )
             .expect("Failed to bind ListenerHandler to clandestine port");
         self.listener_handlers.push(listener_handler);
-        self.config.neighborhood_config.clandestine_port_list = vec![clandestine_port];
+        self.config.neighborhood_config = match &self.config.neighborhood_config.neighborhood_mode {
+            NeighborhoodMode::Standard (node_addr, configs, rate_pack) =>
+                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NodeAddr::new (&node_addr.ip_addr(), &vec![clandestine_port]),
+                    configs.clone(),
+                    rate_pack.clone()
+                )},
+            _ => NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NodeAddr::new (&IpAddr::V4(Ipv4Addr::new (255, 255, 255, 255)), &vec![clandestine_port]),
+                    self.config.neighborhood_config.neighbor_configs().clone(),
+                    self.config.neighborhood_config.rate_pack().clone()
+                )}
+        };
         self.config
             .clandestine_discriminator_factories
             .push(Box::new(JsonDiscriminatorFactory::new()));
     }
 
-    // TODO Examine this and make sure it won't ever cause problems with decentralized Nodes that don't specify --neighbors
-    // TODO This probably has to change with the advent of --originate-only
     fn is_zero_hop(config: &BootstrapperConfig) -> bool {
-        config.neighborhood_config.neighbor_configs.is_empty()
-            && config.neighborhood_config.local_ip_addr_opt == None
+        config.neighborhood_config.neighborhood_mode == NeighborhoodMode::ZeroHop
     }
 }
 
@@ -499,7 +502,7 @@ mod tests {
     use crate::stream_messages::AddStreamMsg;
     use crate::sub_lib::cryptde::PlainData;
     use crate::sub_lib::cryptde::PublicKey;
-    use crate::sub_lib::neighborhood::NodeDescriptor;
+    use crate::sub_lib::neighborhood::{NodeDescriptor, NeighborhoodMode};
     use crate::sub_lib::node_addr::NodeAddr;
     use crate::sub_lib::stream_connector::ConnectionInfo;
     use crate::test_utils::logging::init_test_logging;
@@ -510,7 +513,7 @@ mod tests {
     use crate::test_utils::recorder::Recording;
     use crate::test_utils::tokio_wrapper_mocks::ReadHalfWrapperMock;
     use crate::test_utils::tokio_wrapper_mocks::WriteHalfWrapperMock;
-    use crate::test_utils::{assert_contains, ensure_node_home_directory_exists, ArgsBuilder};
+    use crate::test_utils::{assert_contains, ensure_node_home_directory_exists, ArgsBuilder, rate_pack};
     use crate::test_utils::{cryptde, FakeStreamHolder, DEFAULT_CHAIN_ID};
     use actix::Recipient;
     use actix::System;
@@ -779,7 +782,7 @@ mod tests {
 
         let config = subject.config;
         assert_eq!(
-            config.neighborhood_config.clandestine_port_list.is_empty(),
+            config.neighborhood_config.clandestine_port_list().is_empty(),
             true
         );
         assert_eq!(config.clandestine_discriminator_factories.is_empty(), true);
@@ -914,7 +917,7 @@ mod tests {
         subject.initialize_as_unprivileged(&args, &mut holder.streams());
 
         let config = subject.config;
-        assert!(config.neighborhood_config.clandestine_port_list.is_empty());
+        assert!(config.neighborhood_config.clandestine_port_list().is_empty());
         assert_eq!(config.clandestine_port_opt, Some(1234u16));
     }
 
@@ -1317,12 +1320,14 @@ mod tests {
         );
         let cryptde = CryptDENull::from(&PublicKey::new(&[1, 2, 3, 4]), DEFAULT_CHAIN_ID);
         let mut config = BootstrapperConfig::new();
-        config.neighborhood_config.local_ip_addr_opt = Some (IpAddr::from_str("1.2.3.4").unwrap());
-        config.neighborhood_config.neighbor_configs = vec![NodeDescriptor {
-            public_key: cryptde.public_key().clone(),
-            node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
-        }
-        .to_string(&cryptde, DEFAULT_CHAIN_ID)];
+        config.neighborhood_config = NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+            NodeAddr::new (&IpAddr::from_str("1.2.3.4").unwrap(), &vec![4321]),
+            vec![NodeDescriptor {
+                public_key: cryptde.public_key().clone(),
+                node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
+            }.to_string(&cryptde, DEFAULT_CHAIN_ID)],
+            rate_pack (100),
+        )};
         config.data_directory = data_dir.clone();
         config.clandestine_port_opt = Some(1234);
         let listener_handler = ListenerHandlerNull::new(vec![]).bind_port_result(Ok(()));
@@ -1339,7 +1344,7 @@ mod tests {
         assert_eq!(1234u16, persistent_config.clandestine_port());
         assert_eq!(
             vec![1234u16],
-            subject.config.neighborhood_config.clandestine_port_list
+            subject.config.neighborhood_config.clandestine_port_list()
         );
         assert_eq!(1, subject.listener_handlers.len());
 
@@ -1370,12 +1375,14 @@ mod tests {
             "establish_clandestine_port_handles_unspecified_port",
         );
         let mut config = BootstrapperConfig::new();
-        config.neighborhood_config.local_ip_addr_opt = Some (IpAddr::from_str("1.2.3.4").unwrap());
-        config.neighborhood_config.neighbor_configs = vec![NodeDescriptor {
-            public_key: cryptde.public_key().clone(),
-            node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
-        }
-        .to_string(&cryptde, DEFAULT_CHAIN_ID)];
+        config.neighborhood_config = NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+            NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![]),
+            vec![NodeDescriptor {
+                public_key: cryptde.public_key().clone(),
+                node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
+            }.to_string(&cryptde, DEFAULT_CHAIN_ID)],
+            rate_pack (100),
+        )};
         config.data_directory = data_dir.clone();
         config.clandestine_port_opt = None;
         let listener_handler = ListenerHandlerNull::new(vec![]).bind_port_result(Ok(()));
@@ -1392,7 +1399,7 @@ mod tests {
         let clandestine_port = persistent_config.clandestine_port();
         assert_eq!(
             vec![clandestine_port],
-            subject.config.neighborhood_config.clandestine_port_list
+            subject.config.neighborhood_config.clandestine_port_list()
         );
     }
 
@@ -1405,9 +1412,7 @@ mod tests {
         let mut config = BootstrapperConfig::new();
         config.data_directory = data_dir.clone();
         config.clandestine_port_opt = None;
-        config.neighborhood_config.neighbor_configs = vec![]; // empty
-        config.neighborhood_config.local_ip_addr_opt = None;
-        config.neighborhood_config.clandestine_port_list = vec![];
+        config.neighborhood_config = NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop};
         let listener_handler = ListenerHandlerNull::new(vec![]);
         let mut subject = BootstrapperBuilder::new()
             .add_listener_handler(Box::new(listener_handler))
@@ -1419,7 +1424,7 @@ mod tests {
         assert!(subject
             .config
             .neighborhood_config
-            .clandestine_port_list
+            .clandestine_port_list()
             .is_empty());
     }
 
