@@ -12,7 +12,7 @@ use node_lib::blockchain::blockchain_interface::chain_id_from_name;
 use node_lib::sub_lib::accountant::DEFAULT_EARNING_WALLET;
 use node_lib::sub_lib::cryptde::{CryptDE, PublicKey};
 use node_lib::sub_lib::cryptde_null::CryptDENull;
-use node_lib::sub_lib::neighborhood::RatePack;
+use node_lib::sub_lib::neighborhood::{RatePack};
 use node_lib::sub_lib::neighborhood::DEFAULT_RATE_PACK;
 use node_lib::sub_lib::neighborhood::ZERO_RATE_PACK;
 use node_lib::sub_lib::node_addr::NodeAddr;
@@ -109,6 +109,7 @@ pub fn make_consuming_wallet_info(token: &str) -> ConsumingWalletInfo {
 
 #[derive(PartialEq, Clone)]
 pub struct NodeStartupConfig {
+    pub neighborhood_mode: String,
     pub ip_info: LocalIpInfo,
     pub dns_servers: Vec<IpAddr>,
     pub neighbors: Vec<NodeReference>,
@@ -128,6 +129,7 @@ pub struct NodeStartupConfig {
 impl NodeStartupConfig {
     pub fn new() -> NodeStartupConfig {
         NodeStartupConfig {
+            neighborhood_mode: "standard".to_string (),
             ip_info: LocalIpInfo::ZeroHop,
             dns_servers: Vec::new(),
             neighbors: Vec::new(),
@@ -151,6 +153,8 @@ impl NodeStartupConfig {
 
     fn make_args(&self) -> Vec<String> {
         let mut args = vec![];
+        args.push("--neighborhood-mode".to_string());
+        args.push(self.neighborhood_mode.clone());
         if let LocalIpInfo::DistributedKnown(ip_addr) = self.ip_info {
             args.push("--ip".to_string());
             args.push(format!("{}", ip_addr));
@@ -342,6 +346,7 @@ impl NodeStartupConfig {
 }
 
 pub struct NodeStartupConfigBuilder {
+    neighborhood_mode: String,
     ip_info: LocalIpInfo,
     dns_servers: Vec<IpAddr>,
     neighbors: Vec<NodeReference>,
@@ -361,6 +366,7 @@ pub struct NodeStartupConfigBuilder {
 impl NodeStartupConfigBuilder {
     pub fn zero_hop() -> Self {
         Self {
+            neighborhood_mode: "zero-hop".to_string(),
             ip_info: LocalIpInfo::ZeroHop,
             dns_servers: vec![IpAddr::from_str("8.8.8.8").unwrap()],
             neighbors: vec![],
@@ -380,6 +386,7 @@ impl NodeStartupConfigBuilder {
 
     pub fn standard() -> Self {
         Self {
+            neighborhood_mode: "standard".to_string(),
             ip_info: LocalIpInfo::DistributedUnknown,
             dns_servers: vec![IpAddr::from_str("8.8.8.8").unwrap()],
             neighbors: vec![],
@@ -399,6 +406,7 @@ impl NodeStartupConfigBuilder {
 
     pub fn copy(config: &NodeStartupConfig) -> Self {
         Self {
+            neighborhood_mode: config.neighborhood_mode.clone(),
             ip_info: config.ip_info.clone(),
             dns_servers: config.dns_servers.clone(),
             neighbors: config.neighbors.clone(),
@@ -413,6 +421,21 @@ impl NodeStartupConfigBuilder {
             fake_public_key: config.fake_public_key.clone(),
             blockchain_service_url: config.blockchain_service_url.clone(),
             chain: config.chain.clone(),
+        }
+    }
+
+    pub fn neighborhood_mode(mut self, value: &str) -> Self {
+        if vec![
+            "zero-hop".to_string(),
+            "consume-only".to_string(),
+            "originate-only".to_string(),
+            "standard".to_string()
+        ].contains (&value.to_string()) {
+            self.neighborhood_mode = value.to_string();
+            self
+        }
+        else {
+            panic! ("Unrecognized --neighborhood-mode: '{}'", value)
         }
     }
 
@@ -501,6 +524,7 @@ impl NodeStartupConfigBuilder {
 
     pub fn build(self) -> NodeStartupConfig {
         NodeStartupConfig {
+            neighborhood_mode: self.neighborhood_mode,
             ip_info: self.ip_info,
             dns_servers: self.dns_servers,
             neighbors: self.neighbors,
@@ -1095,6 +1119,7 @@ mod tests {
     #[test]
     fn node_startup_config_builder_copy() {
         let original = NodeStartupConfig {
+            neighborhood_mode: "consume-only".to_string(),
             ip_info: LocalIpInfo::DistributedUnknown,
             dns_servers: vec![IpAddr::from_str("255.255.255.255").unwrap()],
             neighbors: vec![NodeReference::new(
@@ -1121,6 +1146,7 @@ mod tests {
             blockchain_service_url: None,
             chain: None,
         };
+        let neighborhood_mode = "standard".to_string();
         let ip_addr = IpAddr::from_str("1.2.3.4").unwrap();
         let one_neighbor_key = PublicKey::new(&[1, 2, 3, 4]);
         let one_neighbor_ip_addr = IpAddr::from_str("4.5.6.7").unwrap();
@@ -1147,6 +1173,7 @@ mod tests {
         let dns_target = IpAddr::from_str("8.9.10.11").unwrap();
 
         let result = NodeStartupConfigBuilder::copy(&original)
+            .neighborhood_mode(&neighborhood_mode)
             .ip(ip_addr)
             .dns_servers(dns_servers.clone())
             .neighbors(neighbors.clone())
@@ -1155,6 +1182,7 @@ mod tests {
             .dns_port(35)
             .build();
 
+        assert_eq!(result.neighborhood_mode, neighborhood_mode);
         assert_eq!(result.ip_info, LocalIpInfo::DistributedKnown(ip_addr));
         assert_eq!(result.dns_servers, dns_servers);
         assert_eq!(result.neighbors, neighbors);
@@ -1186,6 +1214,7 @@ mod tests {
         );
 
         let subject = NodeStartupConfigBuilder::standard()
+            .neighborhood_mode("consume-only")
             .ip(IpAddr::from_str("1.3.5.7").unwrap())
             .neighbor(one_neighbor.clone())
             .neighbor(another_neighbor.clone())
@@ -1197,6 +1226,8 @@ mod tests {
         assert_eq!(
             result,
             Command::strings(vec!(
+                "--neighborhood-mode",
+                "consume-only",
                 "--ip",
                 "1.3.5.7",
                 "--dns-servers",
