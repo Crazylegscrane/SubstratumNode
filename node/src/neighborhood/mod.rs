@@ -995,7 +995,6 @@ mod tests {
     fn node_with_zero_hop_config_creates_single_node_database() {
         let cryptde = cryptde();
         let earning_wallet = make_wallet("earning");
-        let this_node_addr = NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]);
 
         let subject = Neighborhood::new(
             cryptde,
@@ -1009,7 +1008,7 @@ mod tests {
         let root_node_record_ref = subject.neighborhood_database.root();
 
         assert_eq!(root_node_record_ref.public_key(), cryptde.public_key());
-        assert_eq!(root_node_record_ref.node_addr_opt(), Some(this_node_addr));
+        assert_eq!(root_node_record_ref.node_addr_opt(), None);
         assert_eq!(root_node_record_ref.half_neighbor_keys().len(), 0);
     }
 

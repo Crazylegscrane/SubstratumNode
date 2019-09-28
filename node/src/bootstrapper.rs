@@ -675,6 +675,8 @@ mod tests {
             String::from("SubstratumNode"),
             String::from("--dns-servers"),
             String::from("222.222.222.222"),
+            String::from("--ip"),
+            String::from("111.111.111.111"),
         ]
     }
 
@@ -765,7 +767,7 @@ mod tests {
     }
 
     #[test]
-    fn initialize_as_privileged_with_no_args_produces_empty_clandestine_discriminator_factories_vector(
+    fn initialize_as_privileged_in_zero_hop_mode_produces_empty_clandestine_discriminator_factories_vector(
     ) {
         let _lock = INITIALIZATION.lock();
         let first_handler = Box::new(ListenerHandlerNull::new(vec![]).bind_port_result(Ok(())));
@@ -776,7 +778,7 @@ mod tests {
             .build();
 
         subject.initialize_as_privileged(
-            &vec!["SubstratumNode".to_string()],
+            &vec!["SubstratumNode".to_string(), "--neighborhood-mode".to_string(), "zero-hop".to_string()],
             &mut FakeStreamHolder::new().streams(),
         );
 
@@ -810,6 +812,7 @@ mod tests {
         let args = ArgsBuilder::new()
             .param("--data-directory", data_dir.to_str().unwrap())
             .param("--dns-servers", "1.1.1.1")
+            .param("--ip", "2.2.2.2")
             .param("--real-user", "123:456:/home/booga");
 
         subject.initialize_as_privileged(&args.into(), &mut FakeStreamHolder::new().streams());
@@ -906,6 +909,8 @@ mod tests {
             String::from("SubstratumNode"),
             String::from("--dns-servers"),
             String::from("222.222.222.222"),
+            String::from("--neighborhood-mode"),
+            String::from("zero-hop"),
             String::from("--clandestine-port"),
             String::from("1234"),
             String::from("--data-directory"),
@@ -933,6 +938,8 @@ mod tests {
             String::from("SubstratumNode"),
             String::from("--dns-servers"),
             String::from("1.2.3.4,2.3.4.5"),
+            String::from("--ip"),
+            String::from("111.111.111.111"),
             String::from("--clandestine-port"),
             String::from("1234"),
             String::from("--data-directory"),
@@ -986,6 +993,8 @@ mod tests {
                 String::from("SubstratumNode"),
                 String::from("--dns-servers"),
                 String::from("1.1.1.1"),
+                String::from("--ip"),
+                String::from("111.111.111.111"),
             ],
             &mut FakeStreamHolder::new().streams(),
         );
@@ -1191,6 +1200,8 @@ mod tests {
         init_test_logging();
         let args = vec![
             "SubstratumNode".to_string(),
+            String::from("--ip"),
+            String::from("111.111.111.111"),
             String::from("--data-directory"),
             data_dir.to_str().unwrap().to_string(),
         ];
@@ -1286,6 +1297,8 @@ mod tests {
             String::from("SubstratumNode"),
             String::from("--dns-servers"),
             String::from("222.222.222.222"),
+            String::from("--neighborhood-mode"),
+            String::from("zero-hop"),
             String::from("--data-directory"),
             data_dir.to_str().unwrap().to_string(),
         ];

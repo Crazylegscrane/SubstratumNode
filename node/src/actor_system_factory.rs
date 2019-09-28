@@ -407,10 +407,6 @@ mod tests {
     use crate::sub_lib::ui_gateway::UiGatewayConfig;
     use crate::sub_lib::ui_gateway::{FromUiMessage, UiCarrierMessage};
     use crate::test_utils::rate_pack;
-    use crate::test_utils::rate_pack_exit;
-    use crate::test_utils::rate_pack_exit_byte;
-    use crate::test_utils::rate_pack_routing;
-    use crate::test_utils::rate_pack_routing_byte;
     use crate::test_utils::recorder::Recorder;
     use crate::test_utils::recorder::Recording;
     use crate::test_utils::{cryptde, make_wallet, DEFAULT_CHAIN_ID};
@@ -951,11 +947,7 @@ mod tests {
             log_level: LevelFilter::Off,
             crash_point: CrashPoint::None,
             dns_servers: vec![],
-            neighborhood_config: NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
-                NodeAddr::new (&IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), &vec![]),
-                vec![],
-                rate_pack(100),
-            )},
+            neighborhood_config: NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop},
             accountant_config: AccountantConfig {
                 payable_scan_interval: Duration::from_secs(100),
                 payment_received_scan_interval: Duration::from_secs(100),
@@ -1000,12 +992,12 @@ mod tests {
         check_start_message(&recordings.accountant);
         let hopper_config = Parameters::get(parameters.hopper_params);
         check_cryptde(hopper_config.cryptde);
-        assert_eq!(hopper_config.per_routing_service, rate_pack_routing(100));
-        assert_eq!(hopper_config.per_routing_byte, rate_pack_routing_byte(100));
+        assert_eq!(hopper_config.per_routing_service, 0);
+        assert_eq!(hopper_config.per_routing_byte, 0);
         let proxy_client_config = Parameters::get(parameters.proxy_client_params);
         check_cryptde(proxy_client_config.cryptde);
-        assert_eq!(proxy_client_config.exit_service_rate, rate_pack_exit(100),);
-        assert_eq!(proxy_client_config.exit_byte_rate, rate_pack_exit_byte(100),);
+        assert_eq!(proxy_client_config.exit_service_rate, 0);
+        assert_eq!(proxy_client_config.exit_byte_rate, 0);
         assert_eq!(proxy_client_config.dns_servers, config.dns_servers);
         let (actual_cryptde, actual_is_decentralized, consuming_wallet_balance) =
             Parameters::get(parameters.proxy_server_params);
