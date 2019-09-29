@@ -81,7 +81,7 @@ impl ActorSystemFactoryReal {
         let (dispatcher_subs, pool_bind_sub) = actor_factory.make_and_start_dispatcher();
         let proxy_server_subs = actor_factory.make_and_start_proxy_server(
             cryptde,
-            config.neighborhood_config.is_decentralized(),
+            config.neighborhood_config.mode.is_decentralized(),
             if config.consuming_wallet.is_none() {
                 None
             } else {
@@ -91,14 +91,14 @@ impl ActorSystemFactoryReal {
         let proxy_client_subs = actor_factory.make_and_start_proxy_client(ProxyClientConfig {
             cryptde,
             dns_servers: config.dns_servers.clone(),
-            exit_service_rate: config.neighborhood_config.rate_pack().exit_service_rate,
-            exit_byte_rate: config.neighborhood_config.rate_pack().exit_byte_rate,
+            exit_service_rate: config.neighborhood_config.mode.rate_pack().exit_service_rate,
+            exit_byte_rate: config.neighborhood_config.mode.rate_pack().exit_byte_rate,
         });
         let hopper_subs = actor_factory.make_and_start_hopper(HopperConfig {
             cryptde,
-            per_routing_service: config.neighborhood_config.rate_pack().routing_service_rate,
-            per_routing_byte: config.neighborhood_config.rate_pack().routing_byte_rate,
-            is_decentralized: config.neighborhood_config.is_decentralized(),
+            per_routing_service: config.neighborhood_config.mode.rate_pack().routing_service_rate,
+            per_routing_byte: config.neighborhood_config.mode.rate_pack().routing_byte_rate,
+            is_decentralized: config.neighborhood_config.mode.is_decentralized(),
         });
         let blockchain_bridge_subs =
             actor_factory.make_and_start_blockchain_bridge(&config, &db_initializer);
@@ -890,7 +890,8 @@ mod tests {
             log_level: LevelFilter::Off,
             crash_point: CrashPoint::None,
             dns_servers: vec![],
-            neighborhood_config: NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+            neighborhood_config: NeighborhoodConfig {
+                mode: NeighborhoodMode::Standard (
                 NodeAddr::new (&IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), &vec![]),
                 vec![],
                 rate_pack(100),
@@ -947,7 +948,7 @@ mod tests {
             log_level: LevelFilter::Off,
             crash_point: CrashPoint::None,
             dns_servers: vec![],
-            neighborhood_config: NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop},
+            neighborhood_config: NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop},
             accountant_config: AccountantConfig {
                 payable_scan_interval: Duration::from_secs(100),
                 payment_received_scan_interval: Duration::from_secs(100),
@@ -1043,7 +1044,8 @@ mod tests {
             log_level: LevelFilter::Off,
             crash_point: CrashPoint::None,
             dns_servers: vec![],
-            neighborhood_config: NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+            neighborhood_config: NeighborhoodConfig {
+                mode: NeighborhoodMode::Standard (
                 NodeAddr::new (&IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), &vec![]),
                 vec![],
                 rate_pack(100),

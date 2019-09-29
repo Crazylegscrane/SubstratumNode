@@ -501,7 +501,8 @@ mod standard {
     pub fn make_neighborhood_config (multi_config: &MultiConfig) -> NeighborhoodConfig {
         let neighbor_configs = values_m! (multi_config, "neighbors", String);
         match value_m! (multi_config, "neighborhood-mode", String) {
-            Some (ref s) if s == "standard" => NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+            Some (ref s) if s == "standard" => NeighborhoodConfig {
+                mode: NeighborhoodMode::Standard (
                 NodeAddr::new (&value_m! (multi_config, "ip", IpAddr).expect ("Node cannot run as --neighborhood_mode standard without --ip specified"), &vec![]),
                 neighbor_configs,
                 DEFAULT_RATE_PACK,
@@ -510,7 +511,8 @@ mod standard {
                 if neighbor_configs.is_empty () {
                     panic! ("Node cannot run as --neighborhood_mode originate-only without --neighbors specified")
                 }
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::OriginateOnly (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::OriginateOnly (
                     neighbor_configs,
                     DEFAULT_RATE_PACK,
                 )}
@@ -519,7 +521,8 @@ mod standard {
                 if neighbor_configs.is_empty () {
                     panic! ("Node cannot run as --neighborhood_mode consume-only without --neighbors specified")
                 }
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ConsumeOnly (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::ConsumeOnly (
                     neighbor_configs,
                 )}
             },
@@ -530,7 +533,7 @@ mod standard {
                 if value_m! (multi_config, "ip", IpAddr).is_some () {
                     panic! ("Node cannot run as --neighborhood_mode zero-hop if --ip is specified")
                 }
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop}
+                NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop}
             },
             // These two cases are untestable
             Some (ref s) => panic! ("--neighborhood_mode {} has not been properly provided for in the code", s),
@@ -908,7 +911,8 @@ mod tests {
 
         let result = standard::make_neighborhood_config (&multi_config);
 
-        assert_eq! (result, NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+        assert_eq! (result, NeighborhoodConfig {
+            mode: NeighborhoodMode::Standard (
             NodeAddr::new (&IpAddr::from_str ("1.2.3.4").unwrap(), &vec![]),
             vec![
                 "QmlsbA:1.2.3.4:1234;2345".to_string(),
@@ -948,7 +952,8 @@ mod tests {
 
         let result = standard::make_neighborhood_config (&multi_config);
 
-        assert_eq! (result, NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::OriginateOnly (
+        assert_eq! (result, NeighborhoodConfig {
+            mode: NeighborhoodMode::OriginateOnly (
             vec![
                 "QmlsbA:1.2.3.4:1234;2345".to_string(),
                 "VGVk:2.3.4.5:3456;4567".to_string()
@@ -986,7 +991,8 @@ mod tests {
 
         let result = standard::make_neighborhood_config (&multi_config);
 
-        assert_eq! (result, NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ConsumeOnly (
+        assert_eq! (result, NeighborhoodConfig {
+            mode: NeighborhoodMode::ConsumeOnly (
             vec![
                 "QmlsbA:1.2.3.4:1234;2345".to_string(),
                 "VGVk:2.3.4.5:3456;4567".to_string()
@@ -1022,7 +1028,7 @@ mod tests {
 
         let result = standard::make_neighborhood_config (&multi_config);
 
-        assert_eq! (result, NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop});
+        assert_eq! (result, NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop});
     }
 
     #[test]
@@ -1212,20 +1218,20 @@ mod tests {
             ),
         );
         assert_eq!(
-            config.neighborhood_config.neighbor_configs(),
+            config.neighborhood_config.mode.neighbor_configs(),
             &vec!(
                 "QmlsbA:1.2.3.4:1234;2345".to_string(),
                 "VGVk:2.3.4.5:3456;4567".to_string()
             ),
         );
         assert_eq!(
-            config.neighborhood_config.local_ip_addr_opt(),
+            config.neighborhood_config.mode.local_ip_addr_opt(),
             Some (IpAddr::V4(Ipv4Addr::new(34, 56, 78, 90))),
         );
         assert_eq!(config.ui_gateway_config.ui_port, 5335);
         let expected_port_list: Vec<u16> = vec![];
         assert_eq!(
-            config.neighborhood_config.clandestine_port_list(),
+            config.neighborhood_config.mode.clandestine_port_list(),
             expected_port_list,
         );
         assert_eq!(
@@ -1342,7 +1348,7 @@ mod tests {
             )
         );
         assert_eq!(config.crash_point, CrashPoint::None);
-        assert_eq!(config.neighborhood_config.local_ip_addr_opt(), Some (IpAddr::from_str ("1.2.3.4").unwrap()));
+        assert_eq!(config.neighborhood_config.mode.local_ip_addr_opt(), Some (IpAddr::from_str ("1.2.3.4").unwrap()));
         assert_eq!(config.ui_gateway_config.ui_port, 5333);
         assert!(config.cryptde_null_opt.is_none());
         assert_eq!(config.real_user, RealUser::null().populate());

@@ -365,8 +365,8 @@ impl Neighborhood {
     pub fn new(cryptde: &'static dyn CryptDE, config: &BootstrapperConfig) -> Self {
         let neighborhood_config = &config.neighborhood_config;
         // TODO: Change this logic. Now a decentralized Node can have no --ip if it has --originate-only.
-        if neighborhood_config.local_ip_addr_opt().is_none()
-            && !neighborhood_config.neighbor_configs().is_empty()
+        if neighborhood_config.mode.local_ip_addr_opt().is_none()
+            && !neighborhood_config.mode.neighbor_configs().is_empty()
         {
             panic!("A SubstratumNode without an --ip setting is not decentralized and cannot have a --neighbors setting")
         }
@@ -374,17 +374,8 @@ impl Neighborhood {
         let gossip_producer = Box::new(GossipProducerReal::new());
         let neighborhood_database = NeighborhoodDatabase::new(
             &cryptde.public_key(),
-            match &neighborhood_config.local_ip_addr_opt() {
-                Some (local_ip_addr) => {
-                    Some (NodeAddr::new (
-                        local_ip_addr,
-                        &neighborhood_config.clandestine_port_list(),
-                    ))
-                },
-                None => None,
-            },
+            neighborhood_config.mode.clone(),
             config.earning_wallet.clone(),
-            neighborhood_config.rate_pack().clone(),
             cryptde,
         );
 
@@ -398,7 +389,7 @@ impl Neighborhood {
             neighborhood_database,
             consuming_wallet_opt: config.consuming_wallet.clone(),
             next_return_route_id: 0,
-            initial_neighbors: neighborhood_config.neighbor_configs().clone(),
+            initial_neighbors: neighborhood_config.mode.neighbor_configs().clone(),
             logger: Logger::new("Neighborhood"),
             chain_id: config.blockchain_bridge_config.chain_id,
         }
@@ -999,7 +990,7 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop},
+                NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop},
                 earning_wallet.clone(),
                 None,
             ),
@@ -1023,7 +1014,7 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop},
+                NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop},
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1057,7 +1048,8 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
                     vec![String::from("ooga"), String::from("booga")],
                     rate_pack(100),
@@ -1089,7 +1081,8 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     this_node_addr.clone(),
                     vec![
                         NodeDescriptor {
@@ -1167,7 +1160,8 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
                     vec![NodeDescriptor {
                         public_key: PublicKey::new(&b"booga"[..]),
@@ -1205,7 +1199,8 @@ mod tests {
         let mut subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
                     vec![node_record_to_neighbor_config(&one_neighbor, cryptde)],
                     rate_pack(100),
@@ -1249,7 +1244,8 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
                     vec![NodeDescriptor {
                         public_key: PublicKey::new(&b"booga"[..]),
@@ -1288,7 +1284,8 @@ mod tests {
         let mut subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     node_record.node_addr_opt().unwrap(),
                     vec![NodeDescriptor {
                         public_key: node_record.public_key().clone(),
@@ -1967,6 +1964,8 @@ mod tests {
                 &vec![1234],
             )),
             100,
+            true,
+            true,
         );
         let this_node_inside = this_node.clone();
         let removed_neighbor = make_node_record(2345, true);
@@ -1979,7 +1978,8 @@ mod tests {
             let mut subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NeighborhoodConfig {
+                        mode: NeighborhoodMode::Standard (
                         this_node_inside.node_addr_opt().unwrap(),
                         vec![],
                         rate_pack(100),
@@ -2436,6 +2436,8 @@ mod tests {
                 &vec![1234],
             )),
             100,
+            true,
+            true,
         );
         let mut db = db_from_node(&this_node);
         let far_neighbor = make_node_record(1324, true);
@@ -2470,7 +2472,8 @@ mod tests {
             let subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NeighborhoodConfig {
+                        mode: NeighborhoodMode::Standard (
                         this_node_inside.node_addr_opt().unwrap(),
                         vec![],
                         rate_pack(100),
@@ -2518,7 +2521,8 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![1234]),
                     vec![NodeDescriptor {
                         public_key: neighbor_inside.public_key().clone(),
@@ -2701,7 +2705,8 @@ mod tests {
             let subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NeighborhoodConfig {
+                        mode: NeighborhoodMode::Standard (
                         NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
                         vec![NodeDescriptor {
                             public_key: PublicKey::new(&b"booga"[..]),
@@ -2765,7 +2770,8 @@ mod tests {
             let mut subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NeighborhoodConfig {
+                        mode: NeighborhoodMode::Standard (
                         NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
                         vec![node_record_to_neighbor_config(
                             &one_neighbor,
@@ -2823,7 +2829,8 @@ mod tests {
             let subject = Neighborhood::new(
                 cryptde,
                 &bc_from_nc_plus(
-                    NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                    NeighborhoodConfig {
+                        mode: NeighborhoodMode::Standard (
                         NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
                         vec![NodeDescriptor {
                             public_key: PublicKey::new(&b"booga"[..]),
@@ -2885,7 +2892,8 @@ mod tests {
             let recipient: Recipient<DispatcherNodeQueryResponse> =
                 addr.recipient::<DispatcherNodeQueryResponse>();
             let config = bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     node_record.node_addr_opt().unwrap(),
                     vec![NodeDescriptor {
                         public_key: node_record.public_key().clone(),
@@ -2944,7 +2952,8 @@ mod tests {
             let addr: Addr<Recorder> = recorder.start();
             let recipient: Recipient<UiCarrierMessage> = addr.recipient::<UiCarrierMessage>();
             let config = bc_from_nc_plus(
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::Standard (
                     node_record.node_addr_opt().unwrap(),
                     vec![NodeDescriptor {
                         public_key: node_record.public_key().clone(),

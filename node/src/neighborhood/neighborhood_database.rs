@@ -5,8 +5,8 @@ use crate::neighborhood::dot_graph::{
 };
 use crate::neighborhood::node_record::{NodeRecord, NodeRecordError};
 use crate::sub_lib::cryptde::PublicKey;
-use crate::sub_lib::cryptde::{CryptDE, PlainData};
-use crate::sub_lib::neighborhood::RatePack;
+use crate::sub_lib::cryptde::{CryptDE};
+use crate::sub_lib::neighborhood::{NeighborhoodMode};
 use crate::sub_lib::node_addr::NodeAddr;
 use crate::sub_lib::wallet::Wallet;
 use std::collections::HashMap;
@@ -32,9 +32,8 @@ impl Debug for NeighborhoodDatabase {
 impl NeighborhoodDatabase {
     pub fn new(
         public_key: &PublicKey,
-        node_addr_opt: Option<NodeAddr>,
+        neighborhood_mode: NeighborhoodMode,
         earning_wallet: Wallet,
-        rate_pack: RatePack,
         cryptde: &dyn CryptDE,
     ) -> NeighborhoodDatabase {
         let mut result = NeighborhoodDatabase {
@@ -43,15 +42,19 @@ impl NeighborhoodDatabase {
             by_ip_addr: HashMap::new(),
         };
 
-        let mut node_record = NodeRecord::new(public_key, earning_wallet, rate_pack, 0, cryptde);
-        if let Some (node_addr) = node_addr_opt {
-            node_record
-                .set_node_addr(&node_addr)
-                .expect("Failed to set_node_addr");
-        }
-        node_record.signed_gossip = PlainData::from(
-            serde_cbor::ser::to_vec(&node_record.inner).expect("Couldn't serialize"),
+        let mut node_record = NodeRecord::new (
+            public_key,
+            earning_wallet,
+            neighborhood_mode.rate_pack().clone(),
+            neighborhood_mode.accepts_connections(),
+            neighborhood_mode.routes_data(),
+            0,
+            cryptde
         );
+        if let Some (ip_addr) = neighborhood_mode.local_ip_addr_opt() {
+            node_record.set_node_addr (&NodeAddr::new (&ip_addr, &neighborhood_mode.clandestine_port_list()))
+                .expect("NodeAddr suddenly appeared out of nowhere");
+        }
         node_record.regenerate_signed_gossip(cryptde);
         result.add_arbitrary_node(node_record);
         result
@@ -285,7 +288,7 @@ mod tests {
     use super::*;
     use crate::neighborhood::neighborhood_test_utils::db_from_node;
     use crate::sub_lib::cryptde_null::CryptDENull;
-    use crate::test_utils::{assert_string_contains, rate_pack, DEFAULT_CHAIN_ID};
+    use crate::test_utils::{assert_string_contains, DEFAULT_CHAIN_ID};
     use std::iter::FromIterator;
     use std::str::FromStr;
 
@@ -323,9 +326,8 @@ mod tests {
 
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            this_node.node_addr_opt(),
+            (&this_node).into(),
             this_node.earning_wallet(),
-            rate_pack(1234),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
         );
 
@@ -395,9 +397,8 @@ mod tests {
         let another_node = make_node_record(5678, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            this_node.node_addr_opt(),
+            (&this_node).into(),
             Wallet::from_str("0x546900db8d6e0937497133d1ae6fdf5f4b75bcd0").unwrap(),
-            rate_pack(1234),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
         );
 
@@ -450,9 +451,8 @@ mod tests {
         let another_node = make_node_record(3456, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            this_node.node_addr_opt(),
+            (&this_node).into(),
             Wallet::from_str("0x0000000000000000000000000000000000001234").unwrap(),
-            rate_pack(100),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
         );
         subject.add_node(one_node.clone()).unwrap();
@@ -579,9 +579,8 @@ mod tests {
         let other_node = make_node_record(2345, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            this_node.node_addr_opt(),
+            (&this_node).into(),
             Wallet::from_str("0x0000000000000000000000000000000000001234").unwrap(),
-            rate_pack(100),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
         );
         subject.add_node(other_node.clone()).unwrap();
@@ -693,9 +692,8 @@ mod tests {
         let this_node = make_node_record(123, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            this_node.node_addr_opt(),
+            (&this_node).into(),
             Wallet::from_str("0x0000000000000000000000000000000000000123").unwrap(),
-            rate_pack(100),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
         );
         let nonexistent_key = &PublicKey::new(b"nonexistent");
@@ -740,9 +738,8 @@ mod tests {
         let this_node = make_node_record(123, true);
         let mut subject = NeighborhoodDatabase::new(
             this_node.public_key(),
-            this_node.node_addr_opt(),
+            (&this_node).into(),
             Wallet::from_str("0x0000000000000000000000000000000000000123").unwrap(),
-            rate_pack(100),
             &CryptDENull::from(this_node.public_key(), DEFAULT_CHAIN_ID),
         );
         let neighborless_node = make_node_record(2345, true);

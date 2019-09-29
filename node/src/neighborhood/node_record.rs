@@ -21,7 +21,8 @@ pub struct NodeRecordInner {
     pub earning_wallet: Wallet,
     pub rate_pack: RatePack,
     pub neighbors: BTreeSet<PublicKey>,
-    pub originate_only: bool,
+    pub accepts_connections: bool,
+    pub routes_data: bool,
     pub version: u32,
 }
 
@@ -68,6 +69,8 @@ impl NodeRecord {
         public_key: &PublicKey,
         earning_wallet: Wallet,
         rate_pack: RatePack,
+        accepts_connections: bool,
+        routes_data: bool,
         version: u32,
         cryptde: &dyn CryptDE, // Must be the new NodeRecord's CryptDE: used for signing
     ) -> NodeRecord {
@@ -78,8 +81,9 @@ impl NodeRecord {
                 public_key: public_key.clone(),
                 earning_wallet,
                 rate_pack,
+                accepts_connections,
+                routes_data,
                 neighbors: BTreeSet::new(),
-                originate_only: false, // TODO: Should this be defaulted like this?
                 version,
             },
             signed_gossip: PlainData::new(&[]),
@@ -192,8 +196,12 @@ impl NodeRecord {
         &self.signature
     }
 
-    pub fn is_originate_only (&self) -> bool {
-        self.inner.originate_only
+    pub fn accepts_connections (&self) -> bool {
+        self.inner.accepts_connections
+    }
+
+    pub fn routes_data (&self) -> bool {
+        self.inner.routes_data
     }
 
     pub fn version(&self) -> u32 {
@@ -522,6 +530,8 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             earning_wallet.clone(),
             rate_pack(100),
+            true,
+            true,
             0,
             cryptde(),
         );
@@ -529,6 +539,8 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             earning_wallet.clone(),
             rate_pack(100),
+            true,
+            true,
             0,
             cryptde(),
         );
@@ -536,6 +548,8 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             earning_wallet.clone(),
             rate_pack(100),
+            true,
+            true,
             0,
             cryptde(),
         );
@@ -543,6 +557,8 @@ mod tests {
             &PublicKey::new(&b"kope"[..]),
             earning_wallet.clone(),
             rate_pack(100),
+            true,
+            true,
             0,
             cryptde(),
         );
@@ -553,6 +569,8 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             earning_wallet.clone(),
             rate_pack(100),
+            true,
+            true,
             0,
             cryptde(),
         );
@@ -566,6 +584,8 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             make_wallet("booga"),
             rate_pack(100),
+            true,
+            true,
             0,
             cryptde(),
         );
@@ -573,6 +593,26 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             earning_wallet.clone(),
             rate_pack(200),
+            true,
+            true,
+            0,
+            cryptde(),
+        );
+        let mod_accepts_connections = NodeRecord::new(
+            &PublicKey::new(&b"poke"[..]),
+            earning_wallet.clone(),
+            rate_pack(100),
+            false,
+            true,
+            0,
+            cryptde(),
+        );
+        let mod_routes_data = NodeRecord::new(
+            &PublicKey::new(&b"poke"[..]),
+            earning_wallet.clone(),
+            rate_pack(100),
+            true,
+            false,
             0,
             cryptde(),
         );
@@ -580,6 +620,8 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             earning_wallet.clone(),
             rate_pack(100),
+            true,
+            true,
             0,
             cryptde(),
         );
@@ -588,6 +630,8 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             earning_wallet.clone(),
             rate_pack(100),
+            true,
+            true,
             0,
             cryptde(),
         );
@@ -596,6 +640,8 @@ mod tests {
             &PublicKey::new(&b"poke"[..]),
             earning_wallet.clone(),
             rate_pack(100),
+            true,
+            true,
             1,
             cryptde(),
         );
@@ -607,6 +653,8 @@ mod tests {
         assert_ne!(exemplar, mod_node_addr);
         assert_ne!(exemplar, mod_earning_wallet);
         assert_ne!(exemplar, mod_rate_pack);
+        assert_ne!(exemplar, mod_accepts_connections);
+        assert_ne!(exemplar, mod_routes_data);
         assert_ne!(exemplar, mod_signed_gossip);
         assert_ne!(exemplar, mod_signature);
         assert_ne!(exemplar, mod_version);

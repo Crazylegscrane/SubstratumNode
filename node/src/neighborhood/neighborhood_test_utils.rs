@@ -33,8 +33,9 @@ pub fn make_node_record(n: u16, has_ip: bool) -> NodeRecord {
     let key = PublicKey::new(&[a, b, c, d]);
     let ip_addr = IpAddr::V4(Ipv4Addr::new(a, b, c, d));
     let node_addr = NodeAddr::new(&ip_addr, &vec![n % 10000]);
+    let accepts_connections = has_ip;
 
-    NodeRecord::new_for_tests(&key, if has_ip { Some(&node_addr) } else { None }, n as u64)
+    NodeRecord::new_for_tests(&key, if has_ip { Some(&node_addr) } else { None }, n as u64, accepts_connections, true)
 }
 
 pub fn make_global_cryptde_node_record(n: u16, has_ip: bool) -> NodeRecord {
@@ -52,9 +53,8 @@ pub fn make_meaningless_db() -> NeighborhoodDatabase {
 pub fn db_from_node(node: &NodeRecord) -> NeighborhoodDatabase {
     NeighborhoodDatabase::new(
         node.public_key(),
-        node.node_addr_opt(),
+        node.into(),
         node.earning_wallet(),
-        node.rate_pack().clone(),
         &CryptDENull::from(node.public_key(), DEFAULT_CHAIN_ID),
     )
 }
@@ -69,7 +69,8 @@ pub fn neighborhood_from_nodes(
     }
     let mut config = BootstrapperConfig::new();
     config.neighborhood_config = match neighbor_opt {
-        Some (neighbor) => NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
+        Some (neighbor) => NeighborhoodConfig {
+            mode: NeighborhoodMode::Standard (
             root.node_addr_opt ().expect ("Test-drive me!"),
             vec![NodeDescriptor {
                 public_key: neighbor.public_key().clone(),
@@ -79,11 +80,23 @@ pub fn neighborhood_from_nodes(
             }.to_string(cryptde, DEFAULT_CHAIN_ID)],
             root.rate_pack().clone(),
         )},
-        None => NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ZeroHop}
+        None => NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop}
     };
     config.earning_wallet = root.earning_wallet();
     config.consuming_wallet = Some(make_paying_wallet(b"consuming"));
     Neighborhood::new(cryptde, &config)
+}
+
+impl From<&NodeRecord> for NeighborhoodMode {
+    // Note: not a general-purpose function. Doesn't detect ZeroHop and doesn't reconstruct neighbor_configs.
+    fn from(node: &NodeRecord) -> Self {
+        match (node.node_addr_opt(), node.accepts_connections(), node.routes_data()) {
+            (Some (node_addr), true, true) => NeighborhoodMode::Standard (node_addr, vec![], node.rate_pack().clone()),
+            (None, false, true) => NeighborhoodMode::OriginateOnly (vec![], node.rate_pack().clone()),
+            (None, false, false) => NeighborhoodMode::ConsumeOnly(vec![]),
+            _ => panic! ("Cannot determine NeighborhoodMode from NodeRecord: {:?}", node),
+        }
+    }
 }
 
 impl NodeRecord {
@@ -110,11 +123,15 @@ impl NodeRecord {
         public_key: &PublicKey,
         node_addr_opt: Option<&NodeAddr>,
         base_rate: u64,
+        accepts_connections: bool,
+        routes_data: bool,
     ) -> NodeRecord {
         let mut node_record = NodeRecord::new(
             public_key,
             NodeRecord::earning_wallet_from_key(public_key),
             rate_pack(base_rate),
+            accepts_connections,
+            routes_data,
             0,
             &CryptDENull::from(public_key, DEFAULT_CHAIN_ID),
         );

@@ -565,8 +565,8 @@ mod tests {
             "\n\tinner: NodeRecordInner {\n\t\tpublic_key: AQIDBA,\n\t\tnode_addr_opt: Some(1.2.3.4:[1234]),\n\t\tearning_wallet: Wallet { kind: Address(0x546900db8d6e0937497133d1ae6fdf5f4b75bcd0) },\n\t\trate_pack: RatePack { routing_byte_rate: 1235, routing_service_rate: 1236, exit_byte_rate: 1237, exit_service_rate: 1238 },\n\t\tneighbors: [],\n\t\tversion: 2,\n\t},",
             "\n\tnode_addr_opt: Some(1.2.3.4:[1234]),",
             "\n\tsigned_data:
-Length: 228 (0xe4) bytes
-0000:   a7 6c 64 61  74 61 5f 76  65 72 73 69  6f 6e 83 00   .ldata_version..
+Length: 246 (0xf6) bytes
+0000:   a8 6c 64 61  74 61 5f 76  65 72 73 69  6f 6e 83 00   .ldata_version..
 0010:   10 00 6a 70  75 62 6c 69  63 5f 6b 65  79 44 01 02   ..jpublic_keyD..
 0020:   03 04 6e 65  61 72 6e 69  6e 67 5f 77  61 6c 6c 65   ..nearning_walle
 0030:   74 a1 67 61  64 64 72 65  73 73 94 18  54 18 69 00   t.gaddress..T.i.
@@ -578,13 +578,14 @@ Length: 228 (0xe4) bytes
 0090:   65 5f 72 61  74 65 19 04  d4 6e 65 78  69 74 5f 62   e_rate...nexit_b
 00a0:   79 74 65 5f  72 61 74 65  19 04 d5 71  65 78 69 74   yte_rate...qexit
 00b0:   5f 73 65 72  76 69 63 65  5f 72 61 74  65 19 04 d6   _service_rate...
-00c0:   69 6e 65 69  67 68 62 6f  72 73 80 6e  6f 72 69 67   ineighbors.norig
-00d0:   69 6e 61 74  65 5f 6f 6e  6c 79 f4 67  76 65 72 73   inate_only.gvers
-00e0:   69 6f 6e 02                                          ion.",
+00c0:   69 6e 65 69  67 68 62 6f  72 73 80 73  61 63 63 65   ineighbors.sacce
+00d0:   70 74 73 5f  63 6f 6e 6e  65 63 74 69  6f 6e 73 f5   pts_connections.
+00e0:   6b 72 6f 75  74 65 73 5f  64 61 74 61  f5 67 76 65   kroutes_data.gve
+00f0:   72 73 69 6f  6e 02                                   rsion.",
             "\n\tsignature:
 Length: 24 (0x18) bytes
-0000:   01 02 03 04  ad f1 0b 1a  0f 18 cb 24  d8 81 a1 3f   ...........$...?
-0010:   6b c1 0c ce  ca 1f 35 a1                             k.....5.",
+0000:   01 02 03 04  67 5b 38 53  63 59 ad a8  3d e1 d5 96   ....g[8ScY..=...
+0010:   89 59 88 be  09 86 64 ae                             .Y....d.",
         );
 
         assert_eq!(result, expected);
