@@ -1,11 +1,4 @@
-* If in OOM, don't listen on any clandestine ports
 * Make sure the Neighborhood knows when it's in OOM
 * Never send a Pass or an Introduction containing a Node in OOM
 * When in OOM, never send own IP address in a NodeAddr in Gossip
 * Tolerate Debut and Standard Gossip with no IP address in the sender's NodeAddr if he's in OOM
-
-
-ZeroHop:        --neighborhood-mode zero-hop
-ConsumeOnly:    --neighborhood-mode consume-only --neighbors blah,blah
-OriginateOnly:  --neighborhood-mode originate-only --neighbors blah,blah
-Standard:       --neighborhood-mode standard --ip blah --neighbors blah,blah

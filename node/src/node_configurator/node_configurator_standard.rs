@@ -24,8 +24,8 @@ impl NodeConfigurator<BootstrapperConfig> for NodeConfiguratorStandardPrivileged
         let app = app();
         let multi_config = standard::make_service_mode_multi_config(&app, args);
         let mut bootstrapper_config = BootstrapperConfig::new();
-        standard::establish_port_configurations(&mut bootstrapper_config);
         standard::privileged_parse_args(&multi_config, &mut bootstrapper_config, streams);
+        standard::establish_port_configurations(&mut bootstrapper_config);
         bootstrapper_config
     }
 }
@@ -71,7 +71,8 @@ lazy_static! {
         "The port this Node will advertise to other Nodes at which clandestine traffic will be \
          received. If you don't specify a clandestine port, the Node will choose an unused \
          one at random on first startup, then use that one for every subsequent run unless \
-         you change it by specifying a different clandestine port here. \
+         you change it by specifying a different clandestine port here. --clandestine-port is \
+         meaningless except in --neighborhood-mode standard. \
          Must be between {} and {} [default: last used port]",
         LOWEST_USABLE_INSECURE_PORT, HIGHEST_USABLE_PORT
     );
@@ -100,7 +101,7 @@ const IP_ADDRESS_HELP: &str = "The public IP address of your SubstratumNode: tha
      address at which other SubstratumNodes can contact yours. If you're running your Node behind \
      a router, this will be the IP address of the router. If this IP address starts with 192.168 or 10.0, \
      it's a local address rather than a public address, and other Nodes won't be able to see yours. \
-     A public IP address is not required in Zero-Hop Mode or Originate-Only Mode.";
+     --ip is meaningless except in --neighborhood-mode standard.";
 const LOG_LEVEL_HELP: &str =
     "The minimum severity of the logs that should appear in the Node's logfile. You should probably not specify \
      a level lower than the default unless you're doing testing or forensics: a Node at the 'trace' log level \
@@ -113,7 +114,8 @@ const NEIGHBORS_HELP: &str = "One or more Node descriptors for running Nodes in 
      gBviQbjOS3e5ReFQCvIhUM3i02d1zPleo1iXg/EN6zQ@86.75.30.9:5542 (initial '@' for mainnet)\n\n\
      If you have more than one, separate them with commas (but no spaces). There is no default value; \
      if you don't specify a neighbor, your Node will start without being connected to any Substratum \
-     Network, although other Nodes will be able to connect to yours if they know your Node's descriptor.";
+     Network, although other Nodes will be able to connect to yours if they know your Node's descriptor. \
+     --neighbors is meaningless in --neighborhood-mode zero-hop.";
 const NEIGHBORHOOD_MODE_HELP: &str = "This configures the way the Node relates to other Nodes.\n\n\
      zero-hop means that your Node will operate as its own Substratum Network and will not communicate with any \
      other Nodes. --ip, --neighbors, and --clandestine-port are incompatible with --neighborhood_mode \

@@ -133,6 +133,34 @@ impl NeighborhoodConfig {
             _ => &ZERO_RATE_PACK
         }
     }
+
+    pub fn is_standard (&self) -> bool {
+        match self.neighborhood_mode {
+            NeighborhoodMode::Standard(_, _, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_originate_only (&self) -> bool {
+        match self.neighborhood_mode {
+            NeighborhoodMode::OriginateOnly(_, _) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_consume_only (&self) -> bool {
+        match self.neighborhood_mode {
+            NeighborhoodMode::ConsumeOnly(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_zero_hop (&self) -> bool {
+        match self.neighborhood_mode {
+            NeighborhoodMode::ZeroHop => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -402,18 +430,10 @@ mod tests {
         assert_eq! (subject.clandestine_port_list(), vec![1234u16, 2345u16]);
         assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
         assert_eq! (subject.rate_pack(), &rate_pack (100));
-    }
-
-    #[test]
-    fn zero_hop_mode_results() {
-        let subject = NeighborhoodConfig {
-            neighborhood_mode: NeighborhoodMode::ZeroHop
-        };
-
-        assert_eq! (subject.local_ip_addr_opt(), None);
-        assert! (subject.clandestine_port_list().is_empty());
-        assert! (subject.neighbor_configs().is_empty());
-        assert_eq! (subject.rate_pack(), &ZERO_RATE_PACK);
+        assert! (subject.is_standard ());
+        assert! (!subject.is_originate_only ());
+        assert! (!subject.is_consume_only ());
+        assert! (!subject.is_zero_hop ());
     }
 
     #[test]
@@ -429,6 +449,10 @@ mod tests {
         assert! (subject.clandestine_port_list().is_empty());
         assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
         assert_eq! (subject.rate_pack(), &rate_pack (100));
+        assert! (!subject.is_standard ());
+        assert! (subject.is_originate_only ());
+        assert! (!subject.is_consume_only ());
+        assert! (!subject.is_zero_hop ());
     }
 
     #[test]
@@ -443,5 +467,25 @@ mod tests {
         assert! (subject.clandestine_port_list().is_empty());
         assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
         assert_eq! (subject.rate_pack(), &ZERO_RATE_PACK);
+        assert! (!subject.is_standard ());
+        assert! (!subject.is_originate_only ());
+        assert! (subject.is_consume_only ());
+        assert! (!subject.is_zero_hop ());
+    }
+
+    #[test]
+    fn zero_hop_mode_results() {
+        let subject = NeighborhoodConfig {
+            neighborhood_mode: NeighborhoodMode::ZeroHop
+        };
+
+        assert_eq! (subject.local_ip_addr_opt(), None);
+        assert! (subject.clandestine_port_list().is_empty());
+        assert! (subject.neighbor_configs().is_empty());
+        assert_eq! (subject.rate_pack(), &ZERO_RATE_PACK);
+        assert! (!subject.is_standard ());
+        assert! (!subject.is_originate_only ());
+        assert! (!subject.is_consume_only ());
+        assert! (subject.is_zero_hop ());
     }
 }

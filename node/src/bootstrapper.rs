@@ -40,7 +40,7 @@ use log::LevelFilter;
 use std::collections::HashMap;
 use std::env::var;
 use std::fmt::{Debug, Error, Formatter};
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{IpAddr};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -439,49 +439,38 @@ impl Bootstrapper {
     }
 
     fn establish_clandestine_port(&mut self) {
-        if Self::is_zero_hop(&self.config) {
-            return;
-        }
-        let conn = DbInitializerReal::new()
-            .initialize(&self.config.data_directory)
-            .expect("Cannot initialize database");
-        let config_dao = ConfigDaoReal::new(conn);
-        let persistent_config = PersistentConfigurationReal::new(Box::new(config_dao));
-        if let Some(clandestine_port) = self.config.clandestine_port_opt {
-            persistent_config.set_clandestine_port(clandestine_port)
-        }
-        let clandestine_port = persistent_config.clandestine_port();
-        let mut listener_handler = self.listener_handler_factory.make();
-        listener_handler
-            .bind_port_and_configuration(
-                clandestine_port,
-                PortConfiguration {
-                    discriminator_factories: vec![Box::new(JsonDiscriminatorFactory::new())],
-                    is_clandestine: true,
-                },
-            )
-            .expect("Failed to bind ListenerHandler to clandestine port");
-        self.listener_handlers.push(listener_handler);
-        self.config.neighborhood_config = match &self.config.neighborhood_config.neighborhood_mode {
-            NeighborhoodMode::Standard (node_addr, configs, rate_pack) =>
-                NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
-                    NodeAddr::new (&node_addr.ip_addr(), &vec![clandestine_port]),
-                    configs.clone(),
+        if let NeighborhoodMode::Standard (node_addr, neighbor_configs, rate_pack) = &self.config.neighborhood_config.neighborhood_mode {
+            let conn = DbInitializerReal::new()
+                .initialize(&self.config.data_directory)
+                .expect("Cannot initialize database");
+            let config_dao = ConfigDaoReal::new(conn);
+            let persistent_config = PersistentConfigurationReal::new(Box::new(config_dao));
+            if let Some(clandestine_port) = self.config.clandestine_port_opt {
+                persistent_config.set_clandestine_port(clandestine_port)
+            }
+            let clandestine_port = persistent_config.clandestine_port();
+            let mut listener_handler = self.listener_handler_factory.make();
+            listener_handler
+                .bind_port_and_configuration(
+                    clandestine_port,
+                    PortConfiguration {
+                        discriminator_factories: vec![Box::new(JsonDiscriminatorFactory::new())],
+                        is_clandestine: true,
+                    },
+                )
+                .expect("Failed to bind ListenerHandler to clandestine port");
+            self.listener_handlers.push(listener_handler);
+            self.config.neighborhood_config = NeighborhoodConfig {
+                neighborhood_mode: NeighborhoodMode::Standard(
+                    NodeAddr::new(&node_addr.ip_addr(), &vec![clandestine_port]),
+                    neighbor_configs.clone(),
                     rate_pack.clone()
-                )},
-            _ => NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::Standard (
-                    NodeAddr::new (&IpAddr::V4(Ipv4Addr::new (255, 255, 255, 255)), &vec![clandestine_port]),
-                    self.config.neighborhood_config.neighbor_configs().clone(),
-                    self.config.neighborhood_config.rate_pack().clone()
-                )}
-        };
-        self.config
-            .clandestine_discriminator_factories
-            .push(Box::new(JsonDiscriminatorFactory::new()));
-    }
-
-    fn is_zero_hop(config: &BootstrapperConfig) -> bool {
-        config.neighborhood_config.neighborhood_mode == NeighborhoodMode::ZeroHop
+                )
+            };
+            self.config
+                .clandestine_discriminator_factories
+                .push(Box::new(JsonDiscriminatorFactory::new()));
+        }
     }
 }
 
@@ -1326,7 +1315,7 @@ mod tests {
     }
 
     #[test]
-    fn establish_clandestine_port_handles_specified_port() {
+    fn establish_clandestine_port_handles_specified_port_in_standard_mode() {
         let data_dir = ensure_node_home_directory_exists(
             "bootstrapper",
             "establish_clandestine_port_handles_specified_port",
@@ -1381,7 +1370,7 @@ mod tests {
     }
 
     #[test]
-    fn establish_clandestine_port_handles_unspecified_port() {
+    fn establish_clandestine_port_handles_unspecified_port_in_standard_mode() {
         let cryptde = CryptDENull::from(&PublicKey::new(&[1, 2, 3, 4]), DEFAULT_CHAIN_ID);
         let data_dir = ensure_node_home_directory_exists(
             "bootstrapper",
@@ -1414,6 +1403,69 @@ mod tests {
             vec![clandestine_port],
             subject.config.neighborhood_config.clandestine_port_list()
         );
+    }
+
+    #[test]
+    fn establish_clandestine_port_handles_originate_only() {
+        let cryptde = CryptDENull::from(&PublicKey::new(&[1, 2, 3, 4]), DEFAULT_CHAIN_ID);
+        let data_dir = ensure_node_home_directory_exists(
+            "bootstrapper",
+            "establish_clandestine_port_handles_originate_only",
+        );
+        let mut config = BootstrapperConfig::new();
+        config.data_directory = data_dir.clone();
+        config.clandestine_port_opt = None;
+        config.neighborhood_config = NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::OriginateOnly (
+            vec![NodeDescriptor {
+                public_key: cryptde.public_key().clone(),
+                node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
+            }.to_string(&cryptde, DEFAULT_CHAIN_ID)],
+            rate_pack (100),
+        )};
+        let listener_handler = ListenerHandlerNull::new(vec![]);
+        let mut subject = BootstrapperBuilder::new()
+            .add_listener_handler(Box::new(listener_handler))
+            .config(config)
+            .build();
+
+        subject.establish_clandestine_port();
+
+        assert!(subject
+            .config
+            .neighborhood_config
+            .clandestine_port_list()
+            .is_empty());
+    }
+
+    #[test]
+    fn establish_clandestine_port_handles_consume_only() {
+        let cryptde = CryptDENull::from(&PublicKey::new(&[1, 2, 3, 4]), DEFAULT_CHAIN_ID);
+        let data_dir = ensure_node_home_directory_exists(
+            "bootstrapper",
+            "establish_clandestine_port_handles_originate_only",
+        );
+        let mut config = BootstrapperConfig::new();
+        config.data_directory = data_dir.clone();
+        config.clandestine_port_opt = None;
+        config.neighborhood_config = NeighborhoodConfig {neighborhood_mode: NeighborhoodMode::ConsumeOnly (
+            vec![NodeDescriptor {
+                public_key: cryptde.public_key().clone(),
+                node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
+            }.to_string(&cryptde, DEFAULT_CHAIN_ID)],
+        )};
+        let listener_handler = ListenerHandlerNull::new(vec![]);
+        let mut subject = BootstrapperBuilder::new()
+            .add_listener_handler(Box::new(listener_handler))
+            .config(config)
+            .build();
+
+        subject.establish_clandestine_port();
+
+        assert!(subject
+            .config
+            .neighborhood_config
+            .clandestine_port_list()
+            .is_empty());
     }
 
     #[test]
