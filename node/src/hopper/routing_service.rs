@@ -13,7 +13,7 @@ use crate::sub_lib::proxy_server::ProxyServerSubs;
 use crate::sub_lib::stream_handler_pool::TransmitDataMsg;
 use actix::Recipient;
 use std::borrow::Borrow;
-use std::net::IpAddr;
+use std::net::{SocketAddr};
 
 pub struct RoutingServiceSubs {
     pub proxy_client_subs: ProxyClientSubs,
@@ -90,7 +90,7 @@ impl RoutingService {
         };
 
         self.route_data(
-            peer_addr.ip(),
+            peer_addr,
             next_hop,
             live_package,
             last_data,
@@ -100,7 +100,7 @@ impl RoutingService {
 
     fn route_data(
         &self,
-        sender_ip: IpAddr,
+        sender_addr: SocketAddr,
         next_hop: LiveHop,
         live_package: LiveCoresPackage,
         last_data: bool,
@@ -121,7 +121,7 @@ impl RoutingService {
                 live_package.payload.len(),
                 next_hop.component
             );
-            self.route_data_internally(&next_hop, sender_ip, live_package, ibcd_but_data)
+            self.route_data_internally(&next_hop, sender_addr, live_package, ibcd_but_data)
         }
     }
 
@@ -132,7 +132,7 @@ impl RoutingService {
     fn route_data_internally(
         &self,
         next_hop: &LiveHop,
-        immediate_neighbor_ip: IpAddr,
+        immediate_neighbor_addr: SocketAddr,
         live_package: LiveCoresPackage,
         ibcd_but_data: &InboundClientData,
     ) {
@@ -156,7 +156,7 @@ impl RoutingService {
             }
             self.route_data_to_peripheral_component(
                 next_hop.component,
-                immediate_neighbor_ip,
+                immediate_neighbor_addr,
                 live_package,
                 next_hop.payer_owns_secret_key(&self.cryptde.digest()),
             )
@@ -195,13 +195,13 @@ impl RoutingService {
     fn route_data_to_peripheral_component(
         &self,
         component: Component,
-        immediate_neighbor_ip: IpAddr,
+        immediate_neighbor_addr: SocketAddr,
         live_package: LiveCoresPackage,
         payer_owns_secret_key: bool,
     ) {
         let data_len = live_package.payload.len();
         let expired_package =
-            match live_package.to_expired(immediate_neighbor_ip, self.cryptde.borrow()) {
+            match live_package.to_expired(immediate_neighbor_addr, self.cryptde.borrow()) {
                 Ok(pkg) => pkg,
                 Err(e) => {
                     error!(
@@ -223,7 +223,7 @@ impl RoutingService {
                         .proxy_client_subs
                         .from_hopper
                         .try_send(ExpiredCoresPackage::new(
-                            expired_package.immediate_neighbor_ip,
+                            expired_package.immediate_neighbor,
                             expired_package.paying_wallet,
                             expired_package.remaining_route,
                             client_request,
@@ -248,7 +248,7 @@ impl RoutingService {
                 .proxy_server_subs
                 .from_hopper
                 .try_send(ExpiredCoresPackage::new(
-                    expired_package.immediate_neighbor_ip,
+                    expired_package.immediate_neighbor,
                     expired_package.paying_wallet,
                     expired_package.remaining_route,
                     client_reponse,
@@ -260,7 +260,7 @@ impl RoutingService {
                 .proxy_server_subs
                 .dns_failure_from_hopper
                 .try_send(ExpiredCoresPackage::new(
-                    expired_package.immediate_neighbor_ip,
+                    expired_package.immediate_neighbor,
                     expired_package.paying_wallet,
                     expired_package.remaining_route,
                     dns_resolve_failure,
@@ -272,7 +272,7 @@ impl RoutingService {
                 .neighborhood_subs
                 .from_hopper
                 .try_send(ExpiredCoresPackage::new(
-                    expired_package.immediate_neighbor_ip,
+                    expired_package.immediate_neighbor,
                     expired_package.paying_wallet,
                     expired_package.remaining_route,
                     gossip,
@@ -601,11 +601,11 @@ mod tests {
         let component_recording = component_recording_arc.lock().unwrap();
         let record = component_recording.get_record::<ExpiredCoresPackage<ClientRequestPayload>>(0);
         let expected_ecp = lcp_a
-            .to_expired(IpAddr::from_str("1.2.3.4").unwrap(), cryptde)
+            .to_expired(SocketAddr::from_str("1.2.3.4:5678").unwrap(), cryptde)
             .unwrap();
         assert_eq!(
-            record.immediate_neighbor_ip,
-            expected_ecp.immediate_neighbor_ip
+            record.immediate_neighbor,
+            expected_ecp.immediate_neighbor
         );
         assert_eq!(record.paying_wallet, expected_ecp.paying_wallet);
         assert_eq!(record.remaining_route, expected_ecp.remaining_route);
@@ -663,11 +663,11 @@ mod tests {
         let record =
             component_recording.get_record::<ExpiredCoresPackage<ClientResponsePayload>>(0);
         let expected_ecp = lcp_a
-            .to_expired(IpAddr::from_str("1.3.2.4").unwrap(), cryptde)
+            .to_expired(SocketAddr::from_str("1.3.2.4:5678").unwrap(), cryptde)
             .unwrap();
         assert_eq!(
-            record.immediate_neighbor_ip,
-            expected_ecp.immediate_neighbor_ip
+            record.immediate_neighbor,
+            expected_ecp.immediate_neighbor
         );
         assert_eq!(record.paying_wallet, expected_ecp.paying_wallet);
         assert_eq!(record.remaining_route, expected_ecp.remaining_route);
@@ -733,11 +733,11 @@ mod tests {
         let component_recording = component_recording_arc.lock().unwrap();
         let record = component_recording.get_record::<ExpiredCoresPackage<Gossip>>(0);
         let expected_ecp = lcp_a
-            .to_expired(IpAddr::from_str("1.3.2.4").unwrap(), cryptde)
+            .to_expired(SocketAddr::from_str("1.3.2.4:5678").unwrap(), cryptde)
             .unwrap();
         assert_eq!(
-            record.immediate_neighbor_ip,
-            expected_ecp.immediate_neighbor_ip
+            record.immediate_neighbor,
+            expected_ecp.immediate_neighbor
         );
         assert_eq!(record.paying_wallet, expected_ecp.paying_wallet);
         assert_eq!(record.remaining_route, expected_ecp.remaining_route);

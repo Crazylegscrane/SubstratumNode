@@ -18,7 +18,7 @@ use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::iter::FromIterator;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GossipNodeRecord {
@@ -217,6 +217,16 @@ impl From<IpAddr> for DotGossipEndpoint {
         DotGossipEndpoint {
             public_key: PublicKey::new(b""),
             node_addr_opt: Some(NodeAddr::new(&input, &vec![0])),
+        }
+    }
+}
+
+// Produces incomplete representation
+impl From<SocketAddr> for DotGossipEndpoint {
+    fn from(input: SocketAddr) -> Self {
+        DotGossipEndpoint {
+            public_key: PublicKey::new(b""),
+            node_addr_opt: Some(NodeAddr::new(&input.ip(), &vec![input.port()])),
         }
     }
 }

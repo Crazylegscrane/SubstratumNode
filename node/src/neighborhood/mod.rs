@@ -64,7 +64,7 @@ use neighborhood_database::NeighborhoodDatabase;
 use node_record::NodeRecord;
 use std::cmp::Ordering;
 use std::convert::TryFrom;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{SocketAddr};
 
 pub struct Neighborhood {
     cryptde: &'static dyn CryptDE,
@@ -257,8 +257,8 @@ impl Handler<ExpiredCoresPackage<Gossip>> for Neighborhood {
         _ctx: &mut Self::Context,
     ) -> Self::Result {
         let incoming_gossip = msg.payload;
-        self.log_incoming_gossip(&incoming_gossip, msg.immediate_neighbor_ip);
-        self.handle_gossip(incoming_gossip, msg.immediate_neighbor_ip);
+        self.log_incoming_gossip(&incoming_gossip, msg.immediate_neighbor);
+        self.handle_gossip(incoming_gossip, msg.immediate_neighbor);
     }
 }
 
@@ -411,8 +411,8 @@ impl Neighborhood {
         }
     }
 
-    fn log_incoming_gossip(&self, incoming_gossip: &Gossip, gossip_source: IpAddr) {
-        let source = match self.neighborhood_database.node_by_ip(&gossip_source) {
+    fn log_incoming_gossip(&self, incoming_gossip: &Gossip, gossip_source: SocketAddr) {
+        let source = match self.neighborhood_database.node_by_ip(&gossip_source.ip()) {
             Some(node) => DotGossipEndpoint::from(node),
             None => DotGossipEndpoint::from(gossip_source),
         };
@@ -423,7 +423,7 @@ impl Neighborhood {
         );
     }
 
-    fn handle_gossip(&mut self, incoming_gossip: Gossip, gossip_source: IpAddr) {
+    fn handle_gossip(&mut self, incoming_gossip: Gossip, gossip_source: SocketAddr) {
         info!(
             self.logger,
             "Processing Gossip about {} Nodes",
@@ -468,7 +468,7 @@ impl Neighborhood {
         self.announce_gossip_handling_completion(record_count);
     }
 
-    fn handle_agrs(&mut self, agrs: Vec<AccessibleGossipRecord>, gossip_source: IpAddr) {
+    fn handle_agrs(&mut self, agrs: Vec<AccessibleGossipRecord>, gossip_source: SocketAddr) {
         let ignored_node_name = self.gossip_source_name(&agrs, gossip_source);
         let gossip_record_count = agrs.len();
         let acceptance_result =
@@ -879,11 +879,11 @@ impl Neighborhood {
     fn gossip_source_name(
         &self,
         accessible_gossip: &Vec<AccessibleGossipRecord>,
-        gossip_source: IpAddr,
+        gossip_source: SocketAddr,
     ) -> String {
         match accessible_gossip.iter().find(|agr| {
             if let Some(ref node_addr) = agr.node_addr_opt {
-                node_addr.ip_addr() == gossip_source
+                node_addr.ip_addr() == gossip_source.ip()
             } else {
                 false
             }
@@ -2098,7 +2098,7 @@ mod tests {
             .node(subject_node.public_key(), true)
             .build();
         let cores_package = ExpiredCoresPackage {
-            immediate_neighbor_ip: subject_node.node_addr_opt().unwrap().ip_addr(),
+            immediate_neighbor: subject_node.node_addr_opt().unwrap().into(),
             paying_wallet: None,
             remaining_route: make_meaningless_route(),
             payload: gossip.clone(),
@@ -2121,8 +2121,9 @@ mod tests {
         assert_eq!(1, call_database.keys().len());
         let agrs: Vec<AccessibleGossipRecord> = gossip.try_into().unwrap();
         assert_eq!(agrs, call_agrs);
+        let actual_gossip_source: SocketAddr = subject_node.node_addr_opt().unwrap().into();
         assert_eq!(
-            subject_node.node_addr_opt().unwrap().ip_addr(),
+            actual_gossip_source,
             call_gossip_source
         );
     }
@@ -2157,7 +2158,7 @@ mod tests {
         let system = System::new("");
         subject.hopper_no_lookup = Some(peer_actors.hopper.from_hopper_client_no_lookup);
 
-        subject.handle_gossip(Gossip::new(vec![]), IpAddr::from_str("1.1.1.1").unwrap());
+        subject.handle_gossip(Gossip::new(vec![]), SocketAddr::from_str("1.1.1.1:1111").unwrap());
 
         System::current().stop();
         system.run();
@@ -2214,7 +2215,7 @@ mod tests {
         let system = System::new("");
         subject.hopper = Some(peer_actors.hopper.from_hopper_client);
 
-        subject.handle_gossip(Gossip::new(vec![]), IpAddr::from_str("1.1.1.1").unwrap());
+        subject.handle_gossip(Gossip::new(vec![]), SocketAddr::from_str("1.1.1.1:1111").unwrap());
 
         System::current().stop();
         system.run();
@@ -2292,7 +2293,7 @@ mod tests {
         let peer_actors = peer_actors_builder().hopper(hopper).build();
         let system = System::new("");
         subject.hopper_no_lookup = Some(peer_actors.hopper.from_hopper_client_no_lookup);
-        let gossip_source = IpAddr::from_str("8.6.5.4").unwrap();
+        let gossip_source = SocketAddr::from_str("8.6.5.4:8654").unwrap();
 
         subject.handle_gossip(
             // In real life this would be Relay Gossip from gossip_source to debut_node.
@@ -2338,7 +2339,7 @@ mod tests {
 
         subject.handle_gossip(
             Gossip::new(vec![]),
-            subject_node.node_addr_opt().unwrap().ip_addr(),
+            subject_node.node_addr_opt().unwrap().into(),
         );
 
         System::current().stop();
@@ -2364,7 +2365,7 @@ mod tests {
 
         subject.handle_gossip(
             Gossip::new(vec![]),
-            subject_node.node_addr_opt().unwrap().ip_addr(),
+            subject_node.node_addr_opt().unwrap().into(),
         );
 
         System::current().stop();
@@ -2372,7 +2373,7 @@ mod tests {
         let hopper_recording = hopper_recording_arc.lock().unwrap();
         assert_eq!(0, hopper_recording.len());
         let tlh = TestLogHandler::new();
-        tlh.exists_log_containing("WARN: Neighborhood: Malefactor detected at 5.5.5.5, but malefactor bans not yet implemented; ignoring: Bad guy");
+        tlh.exists_log_containing("WARN: Neighborhood: Malefactor detected at 5.5.5.5:5555, but malefactor bans not yet implemented; ignoring: Bad guy");
     }
 
     #[test]
@@ -2389,7 +2390,7 @@ mod tests {
             .node(another_node_key, false)
             .build();
         gossip.node_records[1].signed_data = PlainData::new(&[1, 2, 3, 4]); // corrupt second record
-        let gossip_source = IpAddr::from_str("1.2.3.4").unwrap();
+        let gossip_source = SocketAddr::from_str("1.2.3.4:1234").unwrap();
 
         subject.handle_gossip(gossip, gossip_source);
 
@@ -2414,7 +2415,7 @@ mod tests {
             .node(another_node_key, false)
             .build();
         gossip.node_records[1].signature = CryptData::new(&[1, 2, 3, 4]); // corrupt second record
-        let gossip_source = IpAddr::from_str("1.2.3.4").unwrap();
+        let gossip_source = SocketAddr::from_str("1.2.3.4:1234").unwrap();
 
         subject.handle_gossip(gossip, gossip_source);
 
@@ -2459,7 +2460,7 @@ mod tests {
             .node(far_neighbor.public_key(), false)
             .build();
         let cores_package = ExpiredCoresPackage {
-            immediate_neighbor_ip: IpAddr::from_str("1.2.3.4").unwrap(),
+            immediate_neighbor: SocketAddr::from_str("1.2.3.4:1234").unwrap(),
             paying_wallet: Some(make_paying_wallet(b"consuming")),
             remaining_route: make_meaningless_route(),
             payload: gossip,
@@ -3294,7 +3295,7 @@ mod tests {
     }
 
     pub struct GossipAcceptorMock {
-        handle_params: Arc<Mutex<Vec<(NeighborhoodDatabase, Vec<AccessibleGossipRecord>, IpAddr)>>>,
+        handle_params: Arc<Mutex<Vec<(NeighborhoodDatabase, Vec<AccessibleGossipRecord>, SocketAddr)>>>,
         handle_results: RefCell<Vec<GossipAcceptanceResult>>,
     }
 
@@ -3303,7 +3304,7 @@ mod tests {
             &self,
             database: &mut NeighborhoodDatabase,
             agrs: Vec<AccessibleGossipRecord>,
-            gossip_source: IpAddr,
+            gossip_source: SocketAddr,
         ) -> GossipAcceptanceResult {
             self.handle_params
                 .lock()
@@ -3324,7 +3325,7 @@ mod tests {
         pub fn handle_params(
             mut self,
             params_arc: &Arc<
-                Mutex<Vec<(NeighborhoodDatabase, Vec<AccessibleGossipRecord>, IpAddr)>>,
+                Mutex<Vec<(NeighborhoodDatabase, Vec<AccessibleGossipRecord>, SocketAddr)>>,
             >,
         ) -> GossipAcceptorMock {
             self.handle_params = params_arc.clone();
