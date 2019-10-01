@@ -200,11 +200,12 @@ impl DebutHandler {
     ) -> Option<&'b PublicKey> {
         let neighbor_vec =
             Self::root_full_neighbors_ordered_by_degree_excluding(database, excluded);
-        let neighbors_3_or_greater_vec: Vec<&PublicKey> = neighbor_vec
+        let qualified_neighbors: Vec<&PublicKey> = neighbor_vec
             .into_iter()
+//            .filter(|k| database.node_by_key(*k).expect("Node disappeared").accepts_connections())
             .skip_while(|k| database.gossip_target_degree(*k) <= 2)
             .collect();
-        match neighbors_3_or_greater_vec.first().cloned() {
+        match qualified_neighbors.first().cloned() {
             // No neighbors of degree 3 or greater
             None => {
                 debug!(
@@ -347,7 +348,9 @@ impl DebutHandler {
         excluded: &'b AccessibleGossipRecord,
     ) -> Option<&'b PublicKey> {
         Self::find_least_connected_neighbor_excluding(
-            database.root().full_neighbor_keys(database),
+            database.root().full_neighbor_keys(database).into_iter()
+                .filter (|k| database.node_by_key(*k).expect ("Node disappeared").accepts_connections())
+                .collect(),
             database,
             excluded,
         )
@@ -2460,6 +2463,36 @@ mod tests {
         let mut dest_db = db_from_node(&dest_node);
         let half_neighbor_key = &dest_db.add_node(make_node_record(3456, true)).unwrap();
         dest_db.add_arbitrary_half_neighbor(dest_node.public_key(), half_neighbor_key);
+
+        let debut = GossipBuilder::new(&src_db)
+            .node(src_node.public_key(), true)
+            .build();
+        let debut_agrs = debut.try_into().unwrap();
+        let gossip_source = src_node.node_addr_opt().unwrap().into();
+        let subject = GossipAcceptorReal::new(cryptde());
+
+        let result = subject.handle(&mut dest_db, debut_agrs, gossip_source);
+
+        assert_eq!(result, GossipAcceptanceResult::Accepted);
+        assert_eq!(
+            dest_db
+                .node_by_key(dest_node.public_key())
+                .unwrap()
+                .has_half_neighbor(src_node.public_key()),
+            true,
+        );
+    }
+
+    #[test]
+    fn introduction_is_impossible_if_only_candidate_does_not_accept_connections() {
+        let src_node = make_node_record(1234, true);
+        let src_db = db_from_node(&src_node);
+        let dest_node = make_node_record(2345, true);
+        let mut dest_db: NeighborhoodDatabase = db_from_node(&dest_node);
+        let mut unaccepting_node: NodeRecord = make_node_record(3456, true);
+        unaccepting_node.inner.accepts_connections = false;
+        let unaccepting_key = &dest_db.add_node(unaccepting_node).unwrap();
+        dest_db.add_arbitrary_full_neighbor(dest_node.public_key(), unaccepting_key);
 
         let debut = GossipBuilder::new(&src_db)
             .node(src_node.public_key(), true)

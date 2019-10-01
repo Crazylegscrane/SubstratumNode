@@ -15,6 +15,7 @@ use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::net::IpAddr;
+use itertools::Itertools;
 
 #[derive(Clone)]
 pub struct NeighborhoodDatabase {
@@ -104,7 +105,10 @@ impl NeighborhoodDatabase {
             None => return 0,
             Some(n) => n,
         };
-        let full_degree = target_node.full_neighbors(self).len();
+        let full_accepting_degree = target_node.full_neighbors(self).into_iter ()
+            .filter (|k| k.accepts_connections())
+            .collect_vec()
+            .len();
         let keys = self.keys();
         // If a Node in our database references a Node not in our database, we can't tell
         // whether that's a half or full neighborship. We assume here for purposes of
@@ -114,7 +118,7 @@ impl NeighborhoodDatabase {
             .into_iter()
             .filter(|k| !keys.contains(k))
             .count();
-        full_degree + nonexistent_degree
+        full_accepting_degree + nonexistent_degree
     }
 
     pub fn add_node(
@@ -607,12 +611,19 @@ mod tests {
     fn gossip_target_degree() {
         let root = make_node_record(1000, true);
         let mut db = db_from_node(&root);
-        // full-neighbor
+        // connection-accepting full-neighbor
         let a = &db.add_node(make_node_record(1001, true)).unwrap();
         let b = &db.add_node(make_node_record(1002, true)).unwrap();
         let c = &db.add_node(make_node_record(1003, true)).unwrap();
         db.add_arbitrary_full_neighbor(a, b);
         db.add_arbitrary_full_neighbor(a, c);
+        // connection-rejecting full-neighbor
+        let g = {
+            let mut g_node: NodeRecord = make_node_record(2001, true);
+            g_node.inner.accepts_connections = false;
+            &db.add_node(g_node).unwrap()
+        };
+        db.add_arbitrary_full_neighbor(a, g);
         // half-neighbor
         let m = &db.add_node(make_node_record(1004, true)).unwrap();
         let n = &db.add_node(make_node_record(1005, true)).unwrap();
