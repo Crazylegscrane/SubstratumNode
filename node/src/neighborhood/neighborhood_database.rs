@@ -4,18 +4,18 @@ use crate::neighborhood::dot_graph::{
     render_dot_graph, DotRenderable, EdgeRenderable, NodeRenderable,
 };
 use crate::neighborhood::node_record::{NodeRecord, NodeRecordError};
+use crate::sub_lib::cryptde::CryptDE;
 use crate::sub_lib::cryptde::PublicKey;
-use crate::sub_lib::cryptde::{CryptDE};
-use crate::sub_lib::neighborhood::{NeighborhoodMode};
+use crate::sub_lib::neighborhood::NeighborhoodMode;
 use crate::sub_lib::node_addr::NodeAddr;
 use crate::sub_lib::wallet::Wallet;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::fmt::Error;
 use std::fmt::Formatter;
 use std::net::IpAddr;
-use itertools::Itertools;
 
 #[derive(Clone)]
 pub struct NeighborhoodDatabase {
@@ -43,17 +43,21 @@ impl NeighborhoodDatabase {
             by_ip_addr: HashMap::new(),
         };
 
-        let mut node_record = NodeRecord::new (
+        let mut node_record = NodeRecord::new(
             public_key,
             earning_wallet,
             neighborhood_mode.rate_pack().clone(),
             neighborhood_mode.accepts_connections(),
             neighborhood_mode.routes_data(),
             0,
-            cryptde
+            cryptde,
         );
-        if let Some (ip_addr) = neighborhood_mode.local_ip_addr_opt() {
-            node_record.set_node_addr (&NodeAddr::new (&ip_addr, &neighborhood_mode.clandestine_port_list()))
+        if let Some(ip_addr) = neighborhood_mode.local_ip_addr_opt() {
+            node_record
+                .set_node_addr(&NodeAddr::new(
+                    &ip_addr,
+                    &neighborhood_mode.clandestine_port_list(),
+                ))
                 .expect("NodeAddr suddenly appeared out of nowhere");
         }
         node_record.regenerate_signed_gossip(cryptde);
@@ -105,8 +109,10 @@ impl NeighborhoodDatabase {
             None => return 0,
             Some(n) => n,
         };
-        let full_accepting_degree = target_node.full_neighbors(self).into_iter ()
-            .filter (|k| k.accepts_connections())
+        let full_accepting_degree = target_node
+            .full_neighbors(self)
+            .into_iter()
+            .filter(|k| k.accepts_connections())
             .collect_vec()
             .len();
         let keys = self.keys();

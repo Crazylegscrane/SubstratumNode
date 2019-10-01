@@ -132,7 +132,10 @@ impl SubstratumCoresServer {
     pub fn node_reference(&self) -> NodeReference {
         NodeReference {
             public_key: self.cryptde.public_key().clone(),
-            node_addr_opt: Some (NodeAddr::new(&self.socket_addr.ip(), &vec![self.socket_addr.port()])),
+            node_addr_opt: Some(NodeAddr::new(
+                &self.socket_addr.ip(),
+                &vec![self.socket_addr.port()],
+            )),
         }
     }
 

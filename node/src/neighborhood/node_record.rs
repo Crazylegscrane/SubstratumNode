@@ -196,11 +196,11 @@ impl NodeRecord {
         &self.signature
     }
 
-    pub fn accepts_connections (&self) -> bool {
+    pub fn accepts_connections(&self) -> bool {
         self.inner.accepts_connections
     }
 
-    pub fn routes_data (&self) -> bool {
+    pub fn routes_data(&self) -> bool {
         self.inner.routes_data
     }
 

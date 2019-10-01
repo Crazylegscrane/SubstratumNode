@@ -15,7 +15,7 @@ use actix::Message;
 use actix::Recipient;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Debug;
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 
 /// Special-case hack to avoid extending a Card From Hell. I'm not sure what the right way to do
 /// this is, but this doesn't feel like it. The intent here is to provide a way to send a CORES
@@ -150,8 +150,8 @@ mod tests {
         cryptde, make_meaningless_message_type, make_paying_wallet, DEFAULT_CHAIN_ID,
     };
     use actix::Actor;
-    use std::str::FromStr;
     use std::net::IpAddr;
+    use std::str::FromStr;
 
     #[test]
     fn hopper_subs_debug() {

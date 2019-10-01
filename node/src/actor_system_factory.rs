@@ -91,13 +91,25 @@ impl ActorSystemFactoryReal {
         let proxy_client_subs = actor_factory.make_and_start_proxy_client(ProxyClientConfig {
             cryptde,
             dns_servers: config.dns_servers.clone(),
-            exit_service_rate: config.neighborhood_config.mode.rate_pack().exit_service_rate,
+            exit_service_rate: config
+                .neighborhood_config
+                .mode
+                .rate_pack()
+                .exit_service_rate,
             exit_byte_rate: config.neighborhood_config.mode.rate_pack().exit_byte_rate,
         });
         let hopper_subs = actor_factory.make_and_start_hopper(HopperConfig {
             cryptde,
-            per_routing_service: config.neighborhood_config.mode.rate_pack().routing_service_rate,
-            per_routing_byte: config.neighborhood_config.mode.rate_pack().routing_byte_rate,
+            per_routing_service: config
+                .neighborhood_config
+                .mode
+                .rate_pack()
+                .routing_service_rate,
+            per_routing_byte: config
+                .neighborhood_config
+                .mode
+                .rate_pack()
+                .routing_byte_rate,
             is_decentralized: config.neighborhood_config.mode.is_decentralized(),
         });
         let blockchain_bridge_subs =
@@ -390,10 +402,11 @@ mod tests {
     use crate::sub_lib::dispatcher::{InboundClientData, StreamShutdownMsg};
     use crate::sub_lib::hopper::IncipientCoresPackage;
     use crate::sub_lib::hopper::{ExpiredCoresPackage, NoLookupIncipientCoresPackage};
-    use crate::sub_lib::neighborhood::{RemoveNeighborMessage, NeighborhoodMode};
     use crate::sub_lib::neighborhood::{DispatcherNodeQueryMessage, NodeRecordMetadataMessage};
     use crate::sub_lib::neighborhood::{NeighborhoodConfig, NodeQueryMessage};
     use crate::sub_lib::neighborhood::{NeighborhoodDotGraphRequest, RouteQueryMessage};
+    use crate::sub_lib::neighborhood::{NeighborhoodMode, RemoveNeighborMessage};
+    use crate::sub_lib::node_addr::NodeAddr;
     use crate::sub_lib::peer_actors::StartMessage;
     use crate::sub_lib::proxy_client::{
         ClientResponsePayload, DnsResolveFailure, InboundServerData,
@@ -422,7 +435,6 @@ mod tests {
     use std::sync::Mutex;
     use std::thread;
     use std::time::Duration;
-    use crate::sub_lib::node_addr::NodeAddr;
 
     #[derive(Default)]
     struct BannedCacheLoaderMock {
@@ -891,11 +903,12 @@ mod tests {
             crash_point: CrashPoint::None,
             dns_servers: vec![],
             neighborhood_config: NeighborhoodConfig {
-                mode: NeighborhoodMode::Standard (
-                NodeAddr::new (&IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), &vec![]),
-                vec![],
-                rate_pack(100),
-            )},
+                mode: NeighborhoodMode::Standard(
+                    NodeAddr::new(&IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), &vec![]),
+                    vec![],
+                    rate_pack(100),
+                ),
+            },
             accountant_config: AccountantConfig {
                 payable_scan_interval: Duration::from_secs(100),
                 payment_received_scan_interval: Duration::from_secs(100),
@@ -948,7 +961,9 @@ mod tests {
             log_level: LevelFilter::Off,
             crash_point: CrashPoint::None,
             dns_servers: vec![],
-            neighborhood_config: NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop},
+            neighborhood_config: NeighborhoodConfig {
+                mode: NeighborhoodMode::ZeroHop,
+            },
             accountant_config: AccountantConfig {
                 payable_scan_interval: Duration::from_secs(100),
                 payment_received_scan_interval: Duration::from_secs(100),
@@ -1045,11 +1060,12 @@ mod tests {
             crash_point: CrashPoint::None,
             dns_servers: vec![],
             neighborhood_config: NeighborhoodConfig {
-                mode: NeighborhoodMode::Standard (
-                NodeAddr::new (&IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), &vec![]),
-                vec![],
-                rate_pack(100),
-            )},
+                mode: NeighborhoodMode::Standard(
+                    NodeAddr::new(&IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)), &vec![]),
+                    vec![],
+                    rate_pack(100),
+                ),
+            },
             accountant_config: AccountantConfig {
                 payable_scan_interval: Duration::from_secs(100),
                 payment_received_scan_interval: Duration::from_secs(100),

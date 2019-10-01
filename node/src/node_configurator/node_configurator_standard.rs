@@ -273,9 +273,9 @@ fn app() -> App<'static, 'static> {
                 .value_name("NEIGHBORHOOD-MODE")
                 .takes_value(true)
                 .possible_values(&["zero-hop", "originate-only", "consume-only", "standard"])
-                .default_value ("standard")
+                .default_value("standard")
                 .case_insensitive(true)
-                .help(NEIGHBORHOOD_MODE_HELP)
+                .help(NEIGHBORHOOD_MODE_HELP),
         )
         .arg(
             Arg::with_name("neighbors")
@@ -320,13 +320,13 @@ mod standard {
     use crate::sub_lib::accountant::DEFAULT_EARNING_WALLET;
     use crate::sub_lib::cryptde::{PlainData, PublicKey};
     use crate::sub_lib::cryptde_null::CryptDENull;
+    use crate::sub_lib::neighborhood::{NeighborhoodConfig, NeighborhoodMode, DEFAULT_RATE_PACK};
+    use crate::sub_lib::node_addr::NodeAddr;
     use crate::sub_lib::wallet::Wallet;
     use crate::tls_discriminator_factory::TlsDiscriminatorFactory;
     use rustc_hex::{FromHex, ToHex};
     use std::convert::TryInto;
     use std::str::FromStr;
-    use crate::sub_lib::neighborhood::{NeighborhoodConfig, NeighborhoodMode, DEFAULT_RATE_PACK};
-    use crate::sub_lib::node_addr::NodeAddr;
 
     pub fn make_service_mode_multi_config<'a>(app: &'a App, args: &Vec<String>) -> MultiConfig<'a> {
         let (config_file_path, user_specified) = determine_config_file_path(app, args);
@@ -380,7 +380,7 @@ mod standard {
         config.log_level =
             value_m!(multi_config, "log-level", LevelFilter).expect("Internal Error");
 
-        config.neighborhood_config = make_neighborhood_config (multi_config);
+        config.neighborhood_config = make_neighborhood_config(multi_config);
 
         config.ui_gateway_config.ui_port =
             value_m!(multi_config, "ui-port", u16).expect("Internal Error");
@@ -498,8 +498,8 @@ mod standard {
         };
     }
 
-    pub fn make_neighborhood_config (multi_config: &MultiConfig) -> NeighborhoodConfig {
-        let neighbor_configs = values_m! (multi_config, "neighbors", String);
+    pub fn make_neighborhood_config(multi_config: &MultiConfig) -> NeighborhoodConfig {
+        let neighbor_configs = values_m!(multi_config, "neighbors", String);
         match value_m! (multi_config, "neighborhood-mode", String) {
             Some (ref s) if s == "standard" => NeighborhoodConfig {
                 mode: NeighborhoodMode::Standard (
@@ -716,6 +716,8 @@ mod tests {
     use crate::sub_lib::crash_point::CrashPoint;
     use crate::sub_lib::cryptde::{CryptDE, PlainData, PublicKey};
     use crate::sub_lib::cryptde_null::CryptDENull;
+    use crate::sub_lib::neighborhood::{NeighborhoodConfig, NeighborhoodMode, DEFAULT_RATE_PACK};
+    use crate::sub_lib::node_addr::NodeAddr;
     use crate::sub_lib::wallet::Wallet;
     use crate::test_utils::environment_guard::EnvironmentGuard;
     use crate::test_utils::persistent_configuration_mock::PersistentConfigurationMock;
@@ -734,8 +736,6 @@ mod tests {
     use std::path::PathBuf;
     use std::str::FromStr;
     use std::sync::{Arc, Mutex};
-    use crate::sub_lib::neighborhood::{NeighborhoodMode, NeighborhoodConfig, DEFAULT_RATE_PACK};
-    use crate::sub_lib::node_addr::NodeAddr;
 
     fn make_default_cli_params() -> ArgsBuilder {
         ArgsBuilder::new()
@@ -897,170 +897,210 @@ mod tests {
     }
 
     #[test]
-    fn make_neighborhood_config_standard_happy_path () {
+    fn make_neighborhood_config_standard_happy_path() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "standard")
-                    .param ("--ip", "1.2.3.4")
-                    .param ("--neighbors", "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "standard")
+                    .param("--ip", "1.2.3.4")
+                    .param(
+                        "--neighbors",
+                        "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567",
+                    )
+                    .into(),
+            ))],
         );
 
-        let result = standard::make_neighborhood_config (&multi_config);
+        let result = standard::make_neighborhood_config(&multi_config);
 
-        assert_eq! (result, NeighborhoodConfig {
-            mode: NeighborhoodMode::Standard (
-            NodeAddr::new (&IpAddr::from_str ("1.2.3.4").unwrap(), &vec![]),
-            vec![
-                "QmlsbA:1.2.3.4:1234;2345".to_string(),
-                "VGVk:2.3.4.5:3456;4567".to_string()
-            ],
-            DEFAULT_RATE_PACK
-        )});
+        assert_eq!(
+            result,
+            NeighborhoodConfig {
+                mode: NeighborhoodMode::Standard(
+                    NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![]),
+                    vec![
+                        "QmlsbA:1.2.3.4:1234;2345".to_string(),
+                        "VGVk:2.3.4.5:3456;4567".to_string()
+                    ],
+                    DEFAULT_RATE_PACK
+                )
+            }
+        );
     }
 
     #[test]
-    #[should_panic (expected = "Node cannot run as --neighborhood_mode standard without --ip specified")]
-    fn make_neighborhood_config_standard_missing_ip () {
+    #[should_panic(
+        expected = "Node cannot run as --neighborhood_mode standard without --ip specified"
+    )]
+    fn make_neighborhood_config_standard_missing_ip() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "standard")
-                    .param ("--neighbors", "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "standard")
+                    .param(
+                        "--neighbors",
+                        "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567",
+                    )
+                    .into(),
+            ))],
         );
 
-        standard::make_neighborhood_config (&multi_config);
+        standard::make_neighborhood_config(&multi_config);
     }
 
     #[test]
-    fn make_neighborhood_config_originate_only_doesnt_need_ip () {
+    fn make_neighborhood_config_originate_only_doesnt_need_ip() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "originate-only")
-                    .param ("--neighbors", "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "originate-only")
+                    .param(
+                        "--neighbors",
+                        "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567",
+                    )
+                    .into(),
+            ))],
         );
 
-        let result = standard::make_neighborhood_config (&multi_config);
+        let result = standard::make_neighborhood_config(&multi_config);
 
-        assert_eq! (result, NeighborhoodConfig {
-            mode: NeighborhoodMode::OriginateOnly (
-            vec![
-                "QmlsbA:1.2.3.4:1234;2345".to_string(),
-                "VGVk:2.3.4.5:3456;4567".to_string()
-            ],
-            DEFAULT_RATE_PACK
-        )});
+        assert_eq!(
+            result,
+            NeighborhoodConfig {
+                mode: NeighborhoodMode::OriginateOnly(
+                    vec![
+                        "QmlsbA:1.2.3.4:1234;2345".to_string(),
+                        "VGVk:2.3.4.5:3456;4567".to_string()
+                    ],
+                    DEFAULT_RATE_PACK
+                )
+            }
+        );
     }
 
     #[test]
-    #[should_panic (expected = "Node cannot run as --neighborhood_mode originate-only without --neighbors specified")]
-    fn make_neighborhood_config_originate_only_does_need_at_least_one_neighbor () {
+    #[should_panic(
+        expected = "Node cannot run as --neighborhood_mode originate-only without --neighbors specified"
+    )]
+    fn make_neighborhood_config_originate_only_does_need_at_least_one_neighbor() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "originate-only")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "originate-only")
+                    .into(),
+            ))],
         );
 
-        standard::make_neighborhood_config (&multi_config);
+        standard::make_neighborhood_config(&multi_config);
     }
 
     #[test]
-    fn make_neighborhood_config_consume_only_doesnt_need_ip () {
+    fn make_neighborhood_config_consume_only_doesnt_need_ip() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "consume-only")
-                    .param ("--neighbors", "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "consume-only")
+                    .param(
+                        "--neighbors",
+                        "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567",
+                    )
+                    .into(),
+            ))],
         );
 
-        let result = standard::make_neighborhood_config (&multi_config);
+        let result = standard::make_neighborhood_config(&multi_config);
 
-        assert_eq! (result, NeighborhoodConfig {
-            mode: NeighborhoodMode::ConsumeOnly (
-            vec![
-                "QmlsbA:1.2.3.4:1234;2345".to_string(),
-                "VGVk:2.3.4.5:3456;4567".to_string()
-            ],
-        )});
+        assert_eq!(
+            result,
+            NeighborhoodConfig {
+                mode: NeighborhoodMode::ConsumeOnly(vec![
+                    "QmlsbA:1.2.3.4:1234;2345".to_string(),
+                    "VGVk:2.3.4.5:3456;4567".to_string()
+                ],)
+            }
+        );
     }
 
     #[test]
-    #[should_panic (expected = "Node cannot run as --neighborhood_mode consume-only without --neighbors specified")]
-    fn make_neighborhood_config_consume_only_does_need_at_least_one_neighbor () {
+    #[should_panic(
+        expected = "Node cannot run as --neighborhood_mode consume-only without --neighbors specified"
+    )]
+    fn make_neighborhood_config_consume_only_does_need_at_least_one_neighbor() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "consume-only")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "consume-only")
+                    .into(),
+            ))],
         );
 
-        standard::make_neighborhood_config (&multi_config);
+        standard::make_neighborhood_config(&multi_config);
     }
 
     #[test]
-    fn make_neighborhood_config_zero_hop_doesnt_need_ip_or_neighbors () {
+    fn make_neighborhood_config_zero_hop_doesnt_need_ip_or_neighbors() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "zero-hop")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "zero-hop")
+                    .into(),
+            ))],
         );
 
-        let result = standard::make_neighborhood_config (&multi_config);
+        let result = standard::make_neighborhood_config(&multi_config);
 
-        assert_eq! (result, NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop});
+        assert_eq!(
+            result,
+            NeighborhoodConfig {
+                mode: NeighborhoodMode::ZeroHop
+            }
+        );
     }
 
     #[test]
-    #[should_panic (expected = "Node cannot run as --neighborhood_mode zero-hop if --ip is specified")]
-    fn make_neighborhood_config_zero_hop_cant_tolerate_ip () {
+    #[should_panic(
+        expected = "Node cannot run as --neighborhood_mode zero-hop if --ip is specified"
+    )]
+    fn make_neighborhood_config_zero_hop_cant_tolerate_ip() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "zero-hop")
-                    .param ("--ip", "1.2.3.4")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "zero-hop")
+                    .param("--ip", "1.2.3.4")
+                    .into(),
+            ))],
         );
 
-        standard::make_neighborhood_config (&multi_config);
+        standard::make_neighborhood_config(&multi_config);
     }
 
     #[test]
-    #[should_panic (expected = "Node cannot run as --neighborhood_mode zero-hop if --neighbors is specified")]
-    fn make_neighborhood_config_zero_hop_cant_tolerate_neighbors () {
+    #[should_panic(
+        expected = "Node cannot run as --neighborhood_mode zero-hop if --neighbors is specified"
+    )]
+    fn make_neighborhood_config_zero_hop_cant_tolerate_neighbors() {
         let multi_config = MultiConfig::new(
             &app(),
-            vec![
-                Box::new(CommandLineVcl::new(ArgsBuilder::new()
-                    .param ("--neighborhood-mode", "zero-hop")
-                    .param ("--neighbors", "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567")
-                    .into())),
-            ],
+            vec![Box::new(CommandLineVcl::new(
+                ArgsBuilder::new()
+                    .param("--neighborhood-mode", "zero-hop")
+                    .param(
+                        "--neighbors",
+                        "QmlsbA:1.2.3.4:1234;2345,VGVk:2.3.4.5:3456;4567",
+                    )
+                    .into(),
+            ))],
         );
 
-        standard::make_neighborhood_config (&multi_config);
+        standard::make_neighborhood_config(&multi_config);
     }
 
     #[test]
@@ -1226,7 +1266,7 @@ mod tests {
         );
         assert_eq!(
             config.neighborhood_config.mode.local_ip_addr_opt(),
-            Some (IpAddr::V4(Ipv4Addr::new(34, 56, 78, 90))),
+            Some(IpAddr::V4(Ipv4Addr::new(34, 56, 78, 90))),
         );
         assert_eq!(config.ui_gateway_config.ui_port, 5335);
         let expected_port_list: Vec<u16> = vec![];
@@ -1348,7 +1388,10 @@ mod tests {
             )
         );
         assert_eq!(config.crash_point, CrashPoint::None);
-        assert_eq!(config.neighborhood_config.mode.local_ip_addr_opt(), Some (IpAddr::from_str ("1.2.3.4").unwrap()));
+        assert_eq!(
+            config.neighborhood_config.mode.local_ip_addr_opt(),
+            Some(IpAddr::from_str("1.2.3.4").unwrap())
+        );
         assert_eq!(config.ui_gateway_config.ui_port, 5333);
         assert!(config.cryptde_null_opt.is_none());
         assert_eq!(config.real_user, RealUser::null().populate());

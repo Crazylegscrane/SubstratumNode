@@ -10,7 +10,7 @@ use crate::sub_lib::hopper::{ExpiredCoresPackage, MessageType, NoLookupIncipient
 use crate::sub_lib::route::Route;
 use crate::sub_lib::route::RouteError;
 use serde_derive::{Deserialize, Serialize};
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LiveCoresPackage {
@@ -107,8 +107,8 @@ mod tests {
         cryptde, make_meaningless_message_type, make_meaningless_route, make_paying_wallet,
         DEFAULT_CHAIN_ID,
     };
+    use std::net::{IpAddr, SocketAddr};
     use std::str::FromStr;
-    use std::net::{SocketAddr, IpAddr};
 
     #[test]
     fn live_cores_package_can_be_constructed_from_scratch() {

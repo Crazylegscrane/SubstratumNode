@@ -1,14 +1,14 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 
+use crate::substratum_node::SubstratumNode;
+use node_lib::neighborhood::node_record::NodeRecordInner;
+use node_lib::neighborhood::AccessibleGossipRecord;
+use node_lib::sub_lib::cryptde::{CryptData, PlainData};
+use std::collections::BTreeSet;
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 use std::{io, thread};
-use crate::substratum_node::SubstratumNode;
-use node_lib::neighborhood::AccessibleGossipRecord;
-use node_lib::neighborhood::node_record::NodeRecordInner;
-use std::collections::BTreeSet;
-use node_lib::sub_lib::cryptde::{PlainData, CryptData};
 
 pub fn send_chunk(stream: &mut TcpStream, chunk: &[u8]) {
     stream

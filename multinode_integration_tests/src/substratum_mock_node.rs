@@ -65,7 +65,7 @@ impl SubstratumNode for SubstratumMockNode {
     fn node_reference(&self) -> NodeReference {
         NodeReference::new(
             self.signing_cryptde().unwrap().public_key().clone(),
-            Some (self.node_addr().ip_addr()),
+            Some(self.node_addr().ip_addr()),
             self.node_addr().ports(),
         )
     }

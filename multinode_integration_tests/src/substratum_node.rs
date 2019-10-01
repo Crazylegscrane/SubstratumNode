@@ -50,7 +50,7 @@ impl fmt::Display for NodeReference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let public_key_string = base64::encode_config(&self.public_key.as_slice(), STANDARD_NO_PAD);
         let ip_addr_string = match &self.node_addr_opt {
-            Some (node_addr) => format! ("{}", node_addr.ip_addr()),
+            Some(node_addr) => format!("{}", node_addr.ip_addr()),
             None => String::new(),
         };
         let port_list_string = match &self.node_addr_opt {
@@ -73,16 +73,20 @@ impl fmt::Display for NodeReference {
 }
 
 impl NodeReference {
-    pub fn new(public_key: PublicKey, ip_addr_opt: Option<IpAddr>, ports: Vec<u16>) -> NodeReference {
+    pub fn new(
+        public_key: PublicKey,
+        ip_addr_opt: Option<IpAddr>,
+        ports: Vec<u16>,
+    ) -> NodeReference {
         match ip_addr_opt {
-            Some (ip_addr) => NodeReference {
+            Some(ip_addr) => NodeReference {
                 public_key,
-                node_addr_opt: Some (NodeAddr::new (&ip_addr, &ports))
+                node_addr_opt: Some(NodeAddr::new(&ip_addr, &ports)),
             },
             None => NodeReference {
                 public_key,
                 node_addr_opt: None,
-            }
+            },
         }
     }
 
@@ -95,11 +99,10 @@ impl NodeReference {
 
     fn extract_ip_addr(slice: &str) -> Result<Option<IpAddr>, String> {
         if slice.is_empty() {
-            Ok (None)
-        }
-        else {
+            Ok(None)
+        } else {
             match IpAddr::from_str(slice) {
-                Ok(ip_addr) => Ok(Some (ip_addr)),
+                Ok(ip_addr) => Ok(Some(ip_addr)),
                 Err(_) => {
                     return Err(format!(
                         "The IP address of a NodeReference must be valid, not '{}'",
@@ -338,7 +341,10 @@ mod tests {
         assert_eq!(result.public_key, key);
         assert_eq!(
             result.node_addr_opt,
-            Some (NodeAddr::new(&IpAddr::from_str("12.34.56.78").unwrap(), &vec!(1234, 2345)))
+            Some(NodeAddr::new(
+                &IpAddr::from_str("12.34.56.78").unwrap(),
+                &vec!(1234, 2345)
+            ))
         );
     }
 
@@ -352,7 +358,10 @@ mod tests {
         assert_eq!(result.public_key, key);
         assert_eq!(
             result.node_addr_opt,
-            Some (NodeAddr::new(&IpAddr::from_str("12.34.56.78").unwrap(), &vec!()))
+            Some(NodeAddr::new(
+                &IpAddr::from_str("12.34.56.78").unwrap(),
+                &vec!()
+            ))
         );
     }
 
@@ -360,7 +369,7 @@ mod tests {
     fn node_reference_can_display_itself() {
         let subject = NodeReference::new(
             PublicKey::new(&b"Booga"[..]),
-            Some (IpAddr::from_str("12.34.56.78").unwrap()),
+            Some(IpAddr::from_str("12.34.56.78").unwrap()),
             vec![1234, 5678],
         );
 

@@ -35,10 +35,11 @@ impl GossipProducer for GossipProducerReal {
             .filter(|k| *k != target)
             .flat_map(|k| database.node_by_key(k))
             .fold(GossipBuilder::new(database), |so_far, node_record_ref| {
-                let reveal_node_addr =
-                    node_record_ref.accepts_connections() && (
-                        node_record_ref.public_key() == database.root().public_key() ||
-                        target_node_ref.has_half_neighbor(node_record_ref.public_key()) // TODO SC-894/GH-132: Do we really want to reveal this?
+                let reveal_node_addr = node_record_ref.accepts_connections()
+                    && (
+                        node_record_ref.public_key() == database.root().public_key()
+                            || target_node_ref.has_half_neighbor(node_record_ref.public_key())
+                        // TODO SC-894/GH-132: Do we really want to reveal this?
                     );
                 so_far.node(node_record_ref.public_key(), reveal_node_addr)
             });
@@ -64,13 +65,13 @@ mod tests {
     use super::*;
     use crate::neighborhood::neighborhood_test_utils::db_from_node;
     use crate::neighborhood::neighborhood_test_utils::make_node_record;
-    use crate::neighborhood::node_record::{NodeRecordInner, NodeRecord};
+    use crate::neighborhood::node_record::{NodeRecord, NodeRecordInner};
+    use crate::neighborhood::AccessibleGossipRecord;
     use crate::sub_lib::cryptde::CryptDE;
     use crate::sub_lib::cryptde_null::CryptDENull;
     use crate::test_utils::DEFAULT_CHAIN_ID;
     use std::collections::btree_set::BTreeSet;
     use std::convert::TryFrom;
-    use crate::neighborhood::AccessibleGossipRecord;
 
     #[test]
     #[should_panic(expected = "Target node AgMEBQ not in NeighborhoodDatabase")]
@@ -97,7 +98,10 @@ mod tests {
         let knows_root_key = &db.add_node(make_node_record(1241, false)).unwrap();
         let root_knows_key_ac = &db.add_node(make_node_record(1242, true)).unwrap();
         let root_knows_key_nac = &db.add_node(make_node_record(1243, true)).unwrap();
-        db.node_by_key_mut(root_knows_key_nac).unwrap().inner.accepts_connections = false;
+        db.node_by_key_mut(root_knows_key_nac)
+            .unwrap()
+            .inner
+            .accepts_connections = false;
         let root_bootstrap_key = &db.add_node(make_node_record(1244, true)).unwrap();
         let target_bootstrap_key = &db.add_node(make_node_record(1245, false)).unwrap();
         db.add_arbitrary_full_neighbor(root_node.public_key(), target_node_key);
@@ -169,7 +173,10 @@ mod tests {
     fn produce_does_not_reveal_root_node_addr_if_root_does_not_accept_connections() {
         let root_node: NodeRecord = make_node_record(1234, true);
         let mut db: NeighborhoodDatabase = db_from_node(&root_node);
-        db.node_by_key_mut(root_node.public_key()).unwrap().inner.accepts_connections = false;
+        db.node_by_key_mut(root_node.public_key())
+            .unwrap()
+            .inner
+            .accepts_connections = false;
         let target_node_key = &db.add_node(make_node_record(1235, true)).unwrap();
         db.add_arbitrary_full_neighbor(root_node.public_key(), target_node_key);
         let subject = GossipProducerReal::new();
@@ -177,10 +184,13 @@ mod tests {
 
         let gossip = subject.produce(&db, target_node_key);
 
-        let gossip_root = gossip.node_records.into_iter()
-            .map (|gnr| AccessibleGossipRecord::try_from (gnr).unwrap())
-            .find (|agr| &agr.inner.public_key == root_node.public_key()).unwrap();
-        assert_eq! (gossip_root.node_addr_opt, None);
+        let gossip_root = gossip
+            .node_records
+            .into_iter()
+            .map(|gnr| AccessibleGossipRecord::try_from(gnr).unwrap())
+            .find(|agr| &agr.inner.public_key == root_node.public_key())
+            .unwrap();
+        assert_eq!(gossip_root.node_addr_opt, None);
     }
 
     #[test]
@@ -193,7 +203,10 @@ mod tests {
 
         assert_eq!(result_gossip.node_records.len(), 1);
         let result_gossip_record = result_gossip.node_records.first().unwrap();
-        assert_eq!(result_gossip_record.node_addr_opt, Some (our_node_record.metadata.node_addr_opt.clone().unwrap()));
+        assert_eq!(
+            result_gossip_record.node_addr_opt,
+            Some(our_node_record.metadata.node_addr_opt.clone().unwrap())
+        );
         let result_node_record_inner = NodeRecordInner::try_from(result_gossip_record).unwrap();
         assert_eq!(result_node_record_inner, our_node_record.inner);
         let our_cryptde = CryptDENull::from(our_node_record.public_key(), DEFAULT_CHAIN_ID);

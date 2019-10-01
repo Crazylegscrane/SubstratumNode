@@ -37,10 +37,10 @@ use crate::sub_lib::neighborhood::NeighborhoodSubs;
 use crate::sub_lib::neighborhood::NodeDescriptor;
 use crate::sub_lib::neighborhood::NodeQueryMessage;
 use crate::sub_lib::neighborhood::NodeQueryResponseMetadata;
+use crate::sub_lib::neighborhood::NodeRecordMetadataMessage;
 use crate::sub_lib::neighborhood::RemoveNeighborMessage;
 use crate::sub_lib::neighborhood::RouteQueryMessage;
 use crate::sub_lib::neighborhood::RouteQueryResponse;
-use crate::sub_lib::neighborhood::{NodeRecordMetadataMessage};
 use crate::sub_lib::node_addr::NodeAddr;
 use crate::sub_lib::peer_actors::{BindMessage, StartMessage};
 use crate::sub_lib::route::Route;
@@ -64,7 +64,7 @@ use neighborhood_database::NeighborhoodDatabase;
 use node_record::NodeRecord;
 use std::cmp::Ordering;
 use std::convert::TryFrom;
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 
 pub struct Neighborhood {
     cryptde: &'static dyn CryptDE,
@@ -954,8 +954,8 @@ mod tests {
     use crate::sub_lib::dispatcher::Endpoint;
     use crate::sub_lib::hop::LiveHop;
     use crate::sub_lib::hopper::MessageType;
+    use crate::sub_lib::neighborhood::NeighborhoodConfig;
     use crate::sub_lib::neighborhood::{ExpectedServices, NeighborhoodMode};
-    use crate::sub_lib::neighborhood::{NeighborhoodConfig};
     use crate::sub_lib::stream_handler_pool::TransmitDataMsg;
     use crate::test_utils::logging::init_test_logging;
     use crate::test_utils::logging::TestLogHandler;
@@ -990,7 +990,9 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop},
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::ZeroHop,
+                },
                 earning_wallet.clone(),
                 None,
             ),
@@ -1014,7 +1016,9 @@ mod tests {
         let subject = Neighborhood::new(
             cryptde,
             &bc_from_nc_plus(
-                NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop},
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::ZeroHop,
+                },
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1049,11 +1053,12 @@ mod tests {
             cryptde,
             &bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
-                    vec![String::from("ooga"), String::from("booga")],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                        vec![String::from("ooga"), String::from("booga")],
+                        rate_pack(100),
+                    ),
+                },
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1082,22 +1087,23 @@ mod tests {
             cryptde,
             &bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    this_node_addr.clone(),
-                    vec![
-                        NodeDescriptor {
-                            public_key: one_neighbor_node.public_key().clone(),
-                            node_addr: one_neighbor_node.node_addr_opt().unwrap().clone(),
-                        }
-                        .to_string(cryptde, DEFAULT_CHAIN_ID),
-                        NodeDescriptor {
-                            public_key: another_neighbor_node.public_key().clone(),
-                            node_addr: another_neighbor_node.node_addr_opt().unwrap().clone(),
-                        }
-                        .to_string(cryptde, DEFAULT_CHAIN_ID),
-                    ],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        this_node_addr.clone(),
+                        vec![
+                            NodeDescriptor {
+                                public_key: one_neighbor_node.public_key().clone(),
+                                node_addr: one_neighbor_node.node_addr_opt().unwrap().clone(),
+                            }
+                            .to_string(cryptde, DEFAULT_CHAIN_ID),
+                            NodeDescriptor {
+                                public_key: another_neighbor_node.public_key().clone(),
+                                node_addr: another_neighbor_node.node_addr_opt().unwrap().clone(),
+                            }
+                            .to_string(cryptde, DEFAULT_CHAIN_ID),
+                        ],
+                        rate_pack(100),
+                    ),
+                },
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1161,17 +1167,19 @@ mod tests {
             cryptde,
             &bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
-                    vec![NodeDescriptor {
-                        public_key: PublicKey::new(&b"booga"[..]),
-                        node_addr: NodeAddr::new(
-                            &IpAddr::from_str("1.2.3.4").unwrap(),
-                            &vec![1234, 2345],
-                        ),
-                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                        vec![NodeDescriptor {
+                            public_key: PublicKey::new(&b"booga"[..]),
+                            node_addr: NodeAddr::new(
+                                &IpAddr::from_str("1.2.3.4").unwrap(),
+                                &vec![1234, 2345],
+                            ),
+                        }
+                        .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                        rate_pack(100),
+                    ),
+                },
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1200,11 +1208,12 @@ mod tests {
             cryptde,
             &bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
-                    vec![node_record_to_neighbor_config(&one_neighbor, cryptde)],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                        vec![node_record_to_neighbor_config(&one_neighbor, cryptde)],
+                        rate_pack(100),
+                    ),
+                },
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1245,17 +1254,19 @@ mod tests {
             cryptde,
             &bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
-                    vec![NodeDescriptor {
-                        public_key: PublicKey::new(&b"booga"[..]),
-                        node_addr: NodeAddr::new(
-                            &IpAddr::from_str("1.2.3.4").unwrap(),
-                            &vec![1234, 2345],
-                        ),
-                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                        vec![NodeDescriptor {
+                            public_key: PublicKey::new(&b"booga"[..]),
+                            node_addr: NodeAddr::new(
+                                &IpAddr::from_str("1.2.3.4").unwrap(),
+                                &vec![1234, 2345],
+                            ),
+                        }
+                        .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                        rate_pack(100),
+                    ),
+                },
                 earning_wallet.clone(),
                 consuming_wallet.clone(),
             ),
@@ -1285,14 +1296,16 @@ mod tests {
             cryptde,
             &bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    node_record.node_addr_opt().unwrap(),
-                    vec![NodeDescriptor {
-                        public_key: node_record.public_key().clone(),
-                        node_addr: node_record.node_addr_opt().unwrap().clone(),
-                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        node_record.node_addr_opt().unwrap(),
+                        vec![NodeDescriptor {
+                            public_key: node_record.public_key().clone(),
+                            node_addr: node_record.node_addr_opt().unwrap().clone(),
+                        }
+                        .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                        rate_pack(100),
+                    ),
+                },
                 node_record.earning_wallet(),
                 None,
             ),
@@ -1979,11 +1992,12 @@ mod tests {
                 cryptde,
                 &bc_from_nc_plus(
                     NeighborhoodConfig {
-                        mode: NeighborhoodMode::Standard (
-                        this_node_inside.node_addr_opt().unwrap(),
-                        vec![],
-                        rate_pack(100),
-                    )},
+                        mode: NeighborhoodMode::Standard(
+                            this_node_inside.node_addr_opt().unwrap(),
+                            vec![],
+                            rate_pack(100),
+                        ),
+                    },
                     earning_wallet.clone(),
                     consuming_wallet.clone(),
                 ),
@@ -2122,10 +2136,7 @@ mod tests {
         let agrs: Vec<AccessibleGossipRecord> = gossip.try_into().unwrap();
         assert_eq!(agrs, call_agrs);
         let actual_gossip_source: SocketAddr = subject_node.node_addr_opt().unwrap().into();
-        assert_eq!(
-            actual_gossip_source,
-            call_gossip_source
-        );
+        assert_eq!(actual_gossip_source, call_gossip_source);
     }
 
     #[test]
@@ -2158,7 +2169,10 @@ mod tests {
         let system = System::new("");
         subject.hopper_no_lookup = Some(peer_actors.hopper.from_hopper_client_no_lookup);
 
-        subject.handle_gossip(Gossip::new(vec![]), SocketAddr::from_str("1.1.1.1:1111").unwrap());
+        subject.handle_gossip(
+            Gossip::new(vec![]),
+            SocketAddr::from_str("1.1.1.1:1111").unwrap(),
+        );
 
         System::current().stop();
         system.run();
@@ -2215,7 +2229,10 @@ mod tests {
         let system = System::new("");
         subject.hopper = Some(peer_actors.hopper.from_hopper_client);
 
-        subject.handle_gossip(Gossip::new(vec![]), SocketAddr::from_str("1.1.1.1:1111").unwrap());
+        subject.handle_gossip(
+            Gossip::new(vec![]),
+            SocketAddr::from_str("1.1.1.1:1111").unwrap(),
+        );
 
         System::current().stop();
         system.run();
@@ -2474,11 +2491,12 @@ mod tests {
                 cryptde,
                 &bc_from_nc_plus(
                     NeighborhoodConfig {
-                        mode: NeighborhoodMode::Standard (
-                        this_node_inside.node_addr_opt().unwrap(),
-                        vec![],
-                        rate_pack(100),
-                    )},
+                        mode: NeighborhoodMode::Standard(
+                            this_node_inside.node_addr_opt().unwrap(),
+                            vec![],
+                            rate_pack(100),
+                        ),
+                    },
                     this_node_inside.earning_wallet(),
                     None,
                 ),
@@ -2523,14 +2541,16 @@ mod tests {
             cryptde,
             &bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![1234]),
-                    vec![NodeDescriptor {
-                        public_key: neighbor_inside.public_key().clone(),
-                        node_addr: neighbor_inside.node_addr_opt().unwrap().clone(),
-                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![1234]),
+                        vec![NodeDescriptor {
+                            public_key: neighbor_inside.public_key().clone(),
+                            node_addr: neighbor_inside.node_addr_opt().unwrap().clone(),
+                        }
+                        .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                        rate_pack(100),
+                    ),
+                },
                 NodeRecord::earning_wallet_from_key(&cryptde.public_key()),
                 NodeRecord::consuming_wallet_from_key(&cryptde.public_key()),
             ),
@@ -2707,17 +2727,19 @@ mod tests {
                 cryptde,
                 &bc_from_nc_plus(
                     NeighborhoodConfig {
-                        mode: NeighborhoodMode::Standard (
-                        NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
-                        vec![NodeDescriptor {
-                            public_key: PublicKey::new(&b"booga"[..]),
-                            node_addr: NodeAddr::new(
-                                &IpAddr::from_str("1.2.3.4").unwrap(),
-                                &vec![1234, 2345],
-                            ),
-                        }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-                        rate_pack(100),
-                    )},
+                        mode: NeighborhoodMode::Standard(
+                            NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                            vec![NodeDescriptor {
+                                public_key: PublicKey::new(&b"booga"[..]),
+                                node_addr: NodeAddr::new(
+                                    &IpAddr::from_str("1.2.3.4").unwrap(),
+                                    &vec![1234, 2345],
+                                ),
+                            }
+                            .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                            rate_pack(100),
+                        ),
+                    },
                     earning_wallet.clone(),
                     consuming_wallet.clone(),
                 ),
@@ -2772,14 +2794,12 @@ mod tests {
                 cryptde,
                 &bc_from_nc_plus(
                     NeighborhoodConfig {
-                        mode: NeighborhoodMode::Standard (
-                        NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
-                        vec![node_record_to_neighbor_config(
-                            &one_neighbor,
-                            cryptde,
-                        )],
-                        rate_pack(100),
-                    )},
+                        mode: NeighborhoodMode::Standard(
+                            NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                            vec![node_record_to_neighbor_config(&one_neighbor, cryptde)],
+                            rate_pack(100),
+                        ),
+                    },
                     earning_wallet.clone(),
                     consuming_wallet.clone(),
                 ),
@@ -2831,17 +2851,19 @@ mod tests {
                 cryptde,
                 &bc_from_nc_plus(
                     NeighborhoodConfig {
-                        mode: NeighborhoodMode::Standard (
-                        NodeAddr::new (&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
-                        vec![NodeDescriptor {
-                            public_key: PublicKey::new(&b"booga"[..]),
-                            node_addr: NodeAddr::new(
-                                &IpAddr::from_str("1.2.3.4").unwrap(),
-                                &vec![1234, 2345],
-                            ),
-                        }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-                        rate_pack(100),
-                    )},
+                        mode: NeighborhoodMode::Standard(
+                            NodeAddr::new(&IpAddr::from_str("5.4.3.2").unwrap(), &vec![5678]),
+                            vec![NodeDescriptor {
+                                public_key: PublicKey::new(&b"booga"[..]),
+                                node_addr: NodeAddr::new(
+                                    &IpAddr::from_str("1.2.3.4").unwrap(),
+                                    &vec![1234, 2345],
+                                ),
+                            }
+                            .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                            rate_pack(100),
+                        ),
+                    },
                     earning_wallet.clone(),
                     consuming_wallet.clone(),
                 ),
@@ -2894,14 +2916,16 @@ mod tests {
                 addr.recipient::<DispatcherNodeQueryResponse>();
             let config = bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    node_record.node_addr_opt().unwrap(),
-                    vec![NodeDescriptor {
-                        public_key: node_record.public_key().clone(),
-                        node_addr: node_record.node_addr_opt().unwrap().clone(),
-                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        node_record.node_addr_opt().unwrap(),
+                        vec![NodeDescriptor {
+                            public_key: node_record.public_key().clone(),
+                            node_addr: node_record.node_addr_opt().unwrap().clone(),
+                        }
+                        .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                        rate_pack(100),
+                    ),
+                },
                 node_record.earning_wallet(),
                 None,
             );
@@ -2954,14 +2978,16 @@ mod tests {
             let recipient: Recipient<UiCarrierMessage> = addr.recipient::<UiCarrierMessage>();
             let config = bc_from_nc_plus(
                 NeighborhoodConfig {
-                    mode: NeighborhoodMode::Standard (
-                    node_record.node_addr_opt().unwrap(),
-                    vec![NodeDescriptor {
-                        public_key: node_record.public_key().clone(),
-                        node_addr: node_record.node_addr_opt().unwrap().clone(),
-                    }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-                    rate_pack(100),
-                )},
+                    mode: NeighborhoodMode::Standard(
+                        node_record.node_addr_opt().unwrap(),
+                        vec![NodeDescriptor {
+                            public_key: node_record.public_key().clone(),
+                            node_addr: node_record.node_addr_opt().unwrap().clone(),
+                        }
+                        .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                        rate_pack(100),
+                    ),
+                },
                 node_record.earning_wallet(),
                 None,
             );
@@ -3295,7 +3321,15 @@ mod tests {
     }
 
     pub struct GossipAcceptorMock {
-        handle_params: Arc<Mutex<Vec<(NeighborhoodDatabase, Vec<AccessibleGossipRecord>, SocketAddr)>>>,
+        handle_params: Arc<
+            Mutex<
+                Vec<(
+                    NeighborhoodDatabase,
+                    Vec<AccessibleGossipRecord>,
+                    SocketAddr,
+                )>,
+            >,
+        >,
         handle_results: RefCell<Vec<GossipAcceptanceResult>>,
     }
 
@@ -3325,7 +3359,13 @@ mod tests {
         pub fn handle_params(
             mut self,
             params_arc: &Arc<
-                Mutex<Vec<(NeighborhoodDatabase, Vec<AccessibleGossipRecord>, SocketAddr)>>,
+                Mutex<
+                    Vec<(
+                        NeighborhoodDatabase,
+                        Vec<AccessibleGossipRecord>,
+                        SocketAddr,
+                    )>,
+                >,
             >,
         ) -> GossipAcceptorMock {
             self.handle_params = params_arc.clone();

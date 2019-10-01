@@ -5,7 +5,7 @@ use node_lib::neighborhood::AccessibleGossipRecord;
 use node_lib::sub_lib::cryptde::PublicKey;
 use node_lib::sub_lib::cryptde_null::CryptDENull;
 use node_lib::test_utils::{vec_to_set, DEFAULT_CHAIN_ID};
-use std::collections::{HashSet};
+use std::collections::HashSet;
 use std::convert::{TryFrom, TryInto};
 use std::net::IpAddr;
 

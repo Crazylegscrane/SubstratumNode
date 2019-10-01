@@ -13,11 +13,11 @@ use crate::sub_lib::utils::node_descriptor_delimiter;
 use crate::sub_lib::wallet::Wallet;
 use actix::Message;
 use actix::Recipient;
+use lazy_static::lazy_static;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::net::IpAddr;
 use std::str::FromStr;
-use lazy_static::lazy_static;
 
 pub const DEFAULT_RATE_PACK: RatePack = RatePack {
     routing_byte_rate: 100,
@@ -41,10 +41,10 @@ pub struct NodeDescriptor {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum NeighborhoodMode {
-    Standard (NodeAddr, Vec<String>, RatePack),
+    Standard(NodeAddr, Vec<String>, RatePack),
     ZeroHop,
-    OriginateOnly (Vec<String>, RatePack),
-    ConsumeOnly (Vec<String>),
+    OriginateOnly(Vec<String>, RatePack),
+    ConsumeOnly(Vec<String>),
 }
 
 impl NeighborhoodMode {
@@ -64,7 +64,7 @@ impl NeighborhoodMode {
     // TODO: Maybe combine this and the next function into node_addr_opt()
     pub fn local_ip_addr_opt(&self) -> Option<IpAddr> {
         match self {
-            NeighborhoodMode::Standard(node_addr, _, _) => Some (node_addr.ip_addr()),
+            NeighborhoodMode::Standard(node_addr, _, _) => Some(node_addr.ip_addr()),
             _ => None,
         }
     }
@@ -81,18 +81,18 @@ impl NeighborhoodMode {
         match self {
             NeighborhoodMode::Standard(_, _, rate_pack) => rate_pack,
             NeighborhoodMode::OriginateOnly(_, rate_pack) => rate_pack,
-            _ => &ZERO_RATE_PACK
+            _ => &ZERO_RATE_PACK,
         }
     }
 
-    pub fn accepts_connections (&self) -> bool {
+    pub fn accepts_connections(&self) -> bool {
         match self {
             NeighborhoodMode::Standard(_, _, _) => true,
             _ => false,
         }
     }
 
-    pub fn routes_data (&self) -> bool {
+    pub fn routes_data(&self) -> bool {
         match self {
             NeighborhoodMode::Standard(_, _, _) => true,
             NeighborhoodMode::OriginateOnly(_, _) => true,
@@ -100,28 +100,28 @@ impl NeighborhoodMode {
         }
     }
 
-    pub fn is_standard (&self) -> bool {
+    pub fn is_standard(&self) -> bool {
         match self {
             NeighborhoodMode::Standard(_, _, _) => true,
             _ => false,
         }
     }
 
-    pub fn is_originate_only (&self) -> bool {
+    pub fn is_originate_only(&self) -> bool {
         match self {
             NeighborhoodMode::OriginateOnly(_, _) => true,
             _ => false,
         }
     }
 
-    pub fn is_consume_only (&self) -> bool {
+    pub fn is_consume_only(&self) -> bool {
         match self {
             NeighborhoodMode::ConsumeOnly(_) => true,
             _ => false,
         }
     }
 
-    pub fn is_zero_hop (&self) -> bool {
+    pub fn is_zero_hop(&self) -> bool {
         match self {
             NeighborhoodMode::ZeroHop => true,
             _ => false,
@@ -309,11 +309,11 @@ pub struct RatePack {
 mod tests {
     use super::*;
     use crate::blockchain::blockchain_interface::chain_id_from_name;
+    use crate::sub_lib::utils::localhost;
     use crate::test_utils::recorder::Recorder;
     use crate::test_utils::{cryptde, DEFAULT_CHAIN_ID};
     use actix::Actor;
     use std::str::FromStr;
-    use crate::sub_lib::utils::localhost;
 
     pub fn rate_pack(base_rate: u64) -> RatePack {
         RatePack {
@@ -433,74 +433,84 @@ mod tests {
 
     #[test]
     fn standard_mode_results() {
-        let subject = NeighborhoodMode::Standard (
-            NodeAddr::new (&localhost(), &vec![1234,  2345]),
+        let subject = NeighborhoodMode::Standard(
+            NodeAddr::new(&localhost(), &vec![1234, 2345]),
             vec!["one neighbor".to_string(), "another neighbor".to_string()],
-            rate_pack (100),
+            rate_pack(100),
         );
 
-        assert_eq! (subject.local_ip_addr_opt(), Some (localhost()));
-        assert_eq! (subject.clandestine_port_list(), vec![1234u16, 2345u16]);
-        assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
-        assert_eq! (subject.rate_pack(), &rate_pack (100));
-        assert! (subject.accepts_connections());
-        assert! (subject.routes_data());
-        assert! (subject.is_standard ());
-        assert! (!subject.is_originate_only ());
-        assert! (!subject.is_consume_only ());
-        assert! (!subject.is_zero_hop ());
+        assert_eq!(subject.local_ip_addr_opt(), Some(localhost()));
+        assert_eq!(subject.clandestine_port_list(), vec![1234u16, 2345u16]);
+        assert_eq!(
+            subject.neighbor_configs(),
+            &vec!["one neighbor".to_string(), "another neighbor".to_string()]
+        );
+        assert_eq!(subject.rate_pack(), &rate_pack(100));
+        assert!(subject.accepts_connections());
+        assert!(subject.routes_data());
+        assert!(subject.is_standard());
+        assert!(!subject.is_originate_only());
+        assert!(!subject.is_consume_only());
+        assert!(!subject.is_zero_hop());
     }
 
     #[test]
     fn originate_only_mode_results() {
-        let subject = NeighborhoodMode::OriginateOnly (
+        let subject = NeighborhoodMode::OriginateOnly(
             vec!["one neighbor".to_string(), "another neighbor".to_string()],
-            rate_pack (100),
+            rate_pack(100),
         );
 
-        assert_eq! (subject.local_ip_addr_opt(), None);
-        assert! (subject.clandestine_port_list().is_empty());
-        assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
-        assert_eq! (subject.rate_pack(), &rate_pack (100));
-        assert! (!subject.accepts_connections());
-        assert! (subject.routes_data());
-        assert! (!subject.is_standard ());
-        assert! (subject.is_originate_only ());
-        assert! (!subject.is_consume_only ());
-        assert! (!subject.is_zero_hop ());
+        assert_eq!(subject.local_ip_addr_opt(), None);
+        assert!(subject.clandestine_port_list().is_empty());
+        assert_eq!(
+            subject.neighbor_configs(),
+            &vec!["one neighbor".to_string(), "another neighbor".to_string()]
+        );
+        assert_eq!(subject.rate_pack(), &rate_pack(100));
+        assert!(!subject.accepts_connections());
+        assert!(subject.routes_data());
+        assert!(!subject.is_standard());
+        assert!(subject.is_originate_only());
+        assert!(!subject.is_consume_only());
+        assert!(!subject.is_zero_hop());
     }
 
     #[test]
     fn consume_only_mode_results() {
-        let subject = NeighborhoodMode::ConsumeOnly (
-            vec!["one neighbor".to_string(), "another neighbor".to_string()],
-        );
+        let subject = NeighborhoodMode::ConsumeOnly(vec![
+            "one neighbor".to_string(),
+            "another neighbor".to_string(),
+        ]);
 
-        assert_eq! (subject.local_ip_addr_opt(), None);
-        assert! (subject.clandestine_port_list().is_empty());
-        assert_eq! (subject.neighbor_configs(), &vec!["one neighbor".to_string(), "another neighbor".to_string()]);
-        assert_eq! (subject.rate_pack(), &ZERO_RATE_PACK);
-        assert! (!subject.accepts_connections());
-        assert! (!subject.routes_data());
-        assert! (!subject.is_standard ());
-        assert! (!subject.is_originate_only ());
-        assert! (subject.is_consume_only ());
-        assert! (!subject.is_zero_hop ());
+        assert_eq!(subject.local_ip_addr_opt(), None);
+        assert!(subject.clandestine_port_list().is_empty());
+        assert_eq!(
+            subject.neighbor_configs(),
+            &vec!["one neighbor".to_string(), "another neighbor".to_string()]
+        );
+        assert_eq!(subject.rate_pack(), &ZERO_RATE_PACK);
+        assert!(!subject.accepts_connections());
+        assert!(!subject.routes_data());
+        assert!(!subject.is_standard());
+        assert!(!subject.is_originate_only());
+        assert!(subject.is_consume_only());
+        assert!(!subject.is_zero_hop());
     }
 
     #[test]
     fn zero_hop_mode_results() {
         let subject = NeighborhoodMode::ZeroHop;
 
-        assert_eq! (subject.local_ip_addr_opt(), None);
-        assert! (subject.clandestine_port_list().is_empty());
-        assert! (subject.neighbor_configs().is_empty());
-        assert_eq! (subject.rate_pack(), &ZERO_RATE_PACK);
-        assert! (!subject.accepts_connections());
-        assert! (!subject.routes_data());
-        assert! (!subject.is_standard ());
-        assert! (!subject.is_originate_only ());
-        assert! (!subject.is_consume_only ());
-        assert! (subject.is_zero_hop ());
+        assert_eq!(subject.local_ip_addr_opt(), None);
+        assert!(subject.clandestine_port_list().is_empty());
+        assert!(subject.neighbor_configs().is_empty());
+        assert_eq!(subject.rate_pack(), &ZERO_RATE_PACK);
+        assert!(!subject.accepts_connections());
+        assert!(!subject.routes_data());
+        assert!(!subject.is_standard());
+        assert!(!subject.is_originate_only());
+        assert!(!subject.is_consume_only());
+        assert!(subject.is_zero_hop());
     }
 }

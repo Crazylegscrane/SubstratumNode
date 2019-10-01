@@ -8,7 +8,7 @@ use crate::neighborhood::{AccessibleGossipRecord, Neighborhood};
 use crate::sub_lib::cryptde::PublicKey;
 use crate::sub_lib::cryptde::{CryptDE, PlainData};
 use crate::sub_lib::cryptde_null::CryptDENull;
-use crate::sub_lib::neighborhood::{NeighborhoodConfig, NodeDescriptor, NeighborhoodMode};
+use crate::sub_lib::neighborhood::{NeighborhoodConfig, NeighborhoodMode, NodeDescriptor};
 use crate::sub_lib::node_addr::NodeAddr;
 use crate::sub_lib::wallet::Wallet;
 use crate::test_utils::*;
@@ -35,7 +35,25 @@ pub fn make_node_record(n: u16, has_ip: bool) -> NodeRecord {
     let node_addr = NodeAddr::new(&ip_addr, &vec![n % 10000]);
     let accepts_connections = has_ip;
 
-    NodeRecord::new_for_tests(&key, if has_ip { Some(&node_addr) } else { None }, n as u64, accepts_connections, true)
+    NodeRecord::new_for_tests(
+        &key,
+        if has_ip { Some(&node_addr) } else { None },
+        n as u64,
+        accepts_connections,
+        true,
+    )
+}
+
+pub fn make_node_record_f(
+    n: u16,
+    has_ip: bool,
+    accepts_connections: bool,
+    routes_data: bool,
+) -> NodeRecord {
+    let mut result = make_node_record(n, has_ip);
+    result.inner.accepts_connections = accepts_connections;
+    result.inner.routes_data = routes_data;
+    result
 }
 
 pub fn make_global_cryptde_node_record(n: u16, has_ip: bool) -> NodeRecord {
@@ -69,18 +87,22 @@ pub fn neighborhood_from_nodes(
     }
     let mut config = BootstrapperConfig::new();
     config.neighborhood_config = match neighbor_opt {
-        Some (neighbor) => NeighborhoodConfig {
-            mode: NeighborhoodMode::Standard (
-            root.node_addr_opt ().expect ("Test-drive me!"),
-            vec![NodeDescriptor {
-                public_key: neighbor.public_key().clone(),
-                node_addr: neighbor
-                    .node_addr_opt()
-                    .expect("Neighbor has to have NodeAddr"),
-            }.to_string(cryptde, DEFAULT_CHAIN_ID)],
-            root.rate_pack().clone(),
-        )},
-        None => NeighborhoodConfig { mode: NeighborhoodMode::ZeroHop}
+        Some(neighbor) => NeighborhoodConfig {
+            mode: NeighborhoodMode::Standard(
+                root.node_addr_opt().expect("Test-drive me!"),
+                vec![NodeDescriptor {
+                    public_key: neighbor.public_key().clone(),
+                    node_addr: neighbor
+                        .node_addr_opt()
+                        .expect("Neighbor has to have NodeAddr"),
+                }
+                .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                root.rate_pack().clone(),
+            ),
+        },
+        None => NeighborhoodConfig {
+            mode: NeighborhoodMode::ZeroHop,
+        },
     };
     config.earning_wallet = root.earning_wallet();
     config.consuming_wallet = Some(make_paying_wallet(b"consuming"));
@@ -90,12 +112,20 @@ pub fn neighborhood_from_nodes(
 impl From<&NodeRecord> for NeighborhoodMode {
     // Note: not a general-purpose function. Doesn't detect ZeroHop and doesn't reconstruct neighbor_configs.
     fn from(node: &NodeRecord) -> Self {
-        match (node.node_addr_opt(), node.accepts_connections(), node.routes_data()) {
-            (Some (node_addr), true, true) => NeighborhoodMode::Standard (node_addr, vec![], node.rate_pack().clone()),
-            (_, false, true) => NeighborhoodMode::OriginateOnly (vec![], node.rate_pack().clone()),
+        match (
+            node.node_addr_opt(),
+            node.accepts_connections(),
+            node.routes_data(),
+        ) {
+            (Some(node_addr), true, true) => {
+                NeighborhoodMode::Standard(node_addr, vec![], node.rate_pack().clone())
+            }
+            (_, false, true) => NeighborhoodMode::OriginateOnly(vec![], node.rate_pack().clone()),
             (_, false, false) => NeighborhoodMode::ConsumeOnly(vec![]),
-            (node_addr_opt, accepts_connections, routes_data) =>
-                panic! ("Cannot determine NeighborhoodMode from triple: ({:?}, {}, {})", node_addr_opt, accepts_connections, routes_data),
+            (node_addr_opt, accepts_connections, routes_data) => panic!(
+                "Cannot determine NeighborhoodMode from triple: ({:?}, {}, {})",
+                node_addr_opt, accepts_connections, routes_data
+            ),
         }
     }
 }

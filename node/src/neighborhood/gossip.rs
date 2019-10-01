@@ -104,8 +104,14 @@ impl GossipNodeRecord {
             Err(_e) => human_readable.push_str("\n\tinner: <non-deserializable>"),
         };
         human_readable.push_str(&format!("\n\tnode_addr_opt: {:?},", self.node_addr_opt));
-        human_readable.push_str(&format!("\n\tsigned_data:\n{:?}", self.signed_data.as_slice().hex_dump()));
-        human_readable.push_str(&format!("\n\tsignature:\n{:?}", self.signature.as_slice().hex_dump()));
+        human_readable.push_str(&format!(
+            "\n\tsigned_data:\n{:?}",
+            self.signed_data.as_slice().hex_dump()
+        ));
+        human_readable.push_str(&format!(
+            "\n\tsignature:\n{:?}",
+            self.signature.as_slice().hex_dump()
+        ));
         human_readable.push_str("\n}");
         human_readable
     }
@@ -498,9 +504,12 @@ mod tests {
 
     #[test]
     fn adding_node_that_doesnt_accept_with_addr_and_reveal_results_in_node_with_no_addr() {
-        let node: NodeRecord = make_node_record (1234, true);
+        let node: NodeRecord = make_node_record(1234, true);
         let mut db: NeighborhoodDatabase = db_from_node(&node);
-        db.node_by_key_mut(node.public_key()).unwrap().inner.accepts_connections = false;
+        db.node_by_key_mut(node.public_key())
+            .unwrap()
+            .inner
+            .accepts_connections = false;
         let builder = GossipBuilder::new(&db);
 
         let builder = builder.node(node.public_key(), true);

@@ -13,7 +13,7 @@ use crate::sub_lib::proxy_server::ProxyServerSubs;
 use crate::sub_lib::stream_handler_pool::TransmitDataMsg;
 use actix::Recipient;
 use std::borrow::Borrow;
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 
 pub struct RoutingServiceSubs {
     pub proxy_client_subs: ProxyClientSubs,
@@ -89,13 +89,7 @@ impl RoutingService {
             }
         };
 
-        self.route_data(
-            peer_addr,
-            next_hop,
-            live_package,
-            last_data,
-            &ibcd_but_data,
-        );
+        self.route_data(peer_addr, next_hop, live_package, last_data, &ibcd_but_data);
     }
 
     fn route_data(
@@ -603,10 +597,7 @@ mod tests {
         let expected_ecp = lcp_a
             .to_expired(SocketAddr::from_str("1.2.3.4:5678").unwrap(), cryptde)
             .unwrap();
-        assert_eq!(
-            record.immediate_neighbor,
-            expected_ecp.immediate_neighbor
-        );
+        assert_eq!(record.immediate_neighbor, expected_ecp.immediate_neighbor);
         assert_eq!(record.paying_wallet, expected_ecp.paying_wallet);
         assert_eq!(record.remaining_route, expected_ecp.remaining_route);
         assert_eq!(record.payload, payload);
@@ -665,10 +656,7 @@ mod tests {
         let expected_ecp = lcp_a
             .to_expired(SocketAddr::from_str("1.3.2.4:5678").unwrap(), cryptde)
             .unwrap();
-        assert_eq!(
-            record.immediate_neighbor,
-            expected_ecp.immediate_neighbor
-        );
+        assert_eq!(record.immediate_neighbor, expected_ecp.immediate_neighbor);
         assert_eq!(record.paying_wallet, expected_ecp.paying_wallet);
         assert_eq!(record.remaining_route, expected_ecp.remaining_route);
         assert_eq!(record.payload, payload);
@@ -735,10 +723,7 @@ mod tests {
         let expected_ecp = lcp_a
             .to_expired(SocketAddr::from_str("1.3.2.4:5678").unwrap(), cryptde)
             .unwrap();
-        assert_eq!(
-            record.immediate_neighbor,
-            expected_ecp.immediate_neighbor
-        );
+        assert_eq!(record.immediate_neighbor, expected_ecp.immediate_neighbor);
         assert_eq!(record.paying_wallet, expected_ecp.paying_wallet);
         assert_eq!(record.remaining_route, expected_ecp.remaining_route);
         assert_eq!(record.payload, payload);
