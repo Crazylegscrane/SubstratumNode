@@ -1103,7 +1103,7 @@ mod tests {
     };
     use crate::neighborhood::node_record::NodeRecord;
     use crate::sub_lib::cryptde_null::CryptDENull;
-    use crate::test_utils::{assert_contains, cryptde, DEFAULT_CHAIN_ID};
+    use crate::test_utils::{assert_contains, cryptde, DEFAULT_CHAIN_ID, vec_to_set};
     use std::convert::TryInto;
     use std::str::FromStr;
 
@@ -3036,7 +3036,7 @@ mod tests {
         let result =
             DebutHandler::root_full_neighbors_ordered_by_degree_excluding(&db, &excluded_agr);
 
-        assert_eq!(result, vec![two_neighbors_key, three_neighbors_key]);
+        assert_eq!(vec_to_set (result), vec_to_set(vec![two_neighbors_key, three_neighbors_key]));
     }
 
     fn make_debut(n: u16, mode: Mode) -> (Gossip, NodeRecord, SocketAddr) {

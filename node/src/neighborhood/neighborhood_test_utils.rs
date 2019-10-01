@@ -92,9 +92,10 @@ impl From<&NodeRecord> for NeighborhoodMode {
     fn from(node: &NodeRecord) -> Self {
         match (node.node_addr_opt(), node.accepts_connections(), node.routes_data()) {
             (Some (node_addr), true, true) => NeighborhoodMode::Standard (node_addr, vec![], node.rate_pack().clone()),
-            (None, false, true) => NeighborhoodMode::OriginateOnly (vec![], node.rate_pack().clone()),
-            (None, false, false) => NeighborhoodMode::ConsumeOnly(vec![]),
-            _ => panic! ("Cannot determine NeighborhoodMode from NodeRecord: {:?}", node),
+            (_, false, true) => NeighborhoodMode::OriginateOnly (vec![], node.rate_pack().clone()),
+            (_, false, false) => NeighborhoodMode::ConsumeOnly(vec![]),
+            (node_addr_opt, accepts_connections, routes_data) =>
+                panic! ("Cannot determine NeighborhoodMode from triple: ({:?}, {}, {})", node_addr_opt, accepts_connections, routes_data),
         }
     }
 }

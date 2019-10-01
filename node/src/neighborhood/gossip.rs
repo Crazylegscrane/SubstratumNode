@@ -409,7 +409,7 @@ impl<'a> GossipBuilder<'a> {
             None => panic!("GossipBuilder cannot add a nonexistent Node"),
             Some(node_record_ref) => {
                 let mut gnr = GossipNodeRecord::from(node_record_ref.clone());
-                if !reveal_node_addr {
+                if !reveal_node_addr || !node_record_ref.accepts_connections() {
                     gnr.node_addr_opt = None
                 }
                 self.gossip.node_records.push(gnr);
@@ -491,6 +491,19 @@ mod tests {
         let builder = GossipBuilder::new(&db);
 
         let builder = builder.node(node.public_key(), false);
+
+        let mut gossip = builder.build();
+        assert_eq!(gossip.node_records.remove(0).node_addr_opt, None)
+    }
+
+    #[test]
+    fn adding_node_that_doesnt_accept_with_addr_and_reveal_results_in_node_with_no_addr() {
+        let node: NodeRecord = make_node_record (1234, true);
+        let mut db: NeighborhoodDatabase = db_from_node(&node);
+        db.node_by_key_mut(node.public_key()).unwrap().inner.accepts_connections = false;
+        let builder = GossipBuilder::new(&db);
+
+        let builder = builder.node(node.public_key(), true);
 
         let mut gossip = builder.build();
         assert_eq!(gossip.node_records.remove(0).node_addr_opt, None)
