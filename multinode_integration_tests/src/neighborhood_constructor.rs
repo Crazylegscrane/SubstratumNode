@@ -6,18 +6,16 @@ use crate::substratum_node::SubstratumNode;
 use crate::substratum_node_cluster::SubstratumNodeCluster;
 use crate::substratum_real_node::SubstratumRealNode;
 use crate::substratum_real_node::{make_consuming_wallet_info, NodeStartupConfigBuilder};
-use node_lib::blockchain::blockchain_interface::chain_id_from_name;
 use node_lib::neighborhood::gossip::Gossip;
 use node_lib::neighborhood::gossip_producer::{GossipProducer, GossipProducerReal};
 use node_lib::neighborhood::neighborhood_database::NeighborhoodDatabase;
 use node_lib::neighborhood::neighborhood_test_utils::db_from_node;
-use node_lib::neighborhood::node_record::{NodeRecord, NodeRecordInner, NodeRecordMetadata};
-use node_lib::sub_lib::cryptde::{CryptData, PlainData, PublicKey};
-use node_lib::sub_lib::cryptde_null::CryptDENull;
-use node_lib::test_utils::DEFAULT_CHAIN_ID;
+use node_lib::neighborhood::node_record::{NodeRecord, NodeRecordMetadata};
+use node_lib::sub_lib::cryptde::{PublicKey};
 use std::collections::{BTreeSet, HashMap};
 use std::convert::TryInto;
 use std::time::Duration;
+use node_lib::neighborhood::AccessibleGossipRecord;
 
 /// Construct a neighborhood for testing that corresponds to a provided NeighborhoodDatabase, with a SubstratumRealNode
 /// corresponding to the root of the database, SubstratumMockNodes corresponding to all the root's immediate neighbors,
@@ -239,30 +237,40 @@ impl From<&SubstratumRealNode> for NodeRecord {
 }
 
 fn from_substratum_node_to_node_record(substratum_node: &dyn SubstratumNode) -> NodeRecord {
-    let mut result = NodeRecord {
-        inner: NodeRecordInner {
-            data_version: NodeRecordInner::data_version(),
-            public_key: substratum_node.public_key().clone(),
-            earning_wallet: substratum_node.earning_wallet(),
-            rate_pack: substratum_node.rate_pack(),
-            neighbors: BTreeSet::new(),
-            originate_only: false,
-            version: 0,
-        },
+    let agr = AccessibleGossipRecord::from (substratum_node);
+    let result = NodeRecord {
+        inner: agr.inner.clone(),
         metadata: NodeRecordMetadata {
             desirable: true,
-            node_addr_opt: Some(substratum_node.node_addr()),
+            node_addr_opt: agr.node_addr_opt.clone(),
         },
-        signed_gossip: PlainData::new(b""),
-        signature: CryptData::new(b""),
+        signed_gossip: agr.signed_gossip.clone(),
+        signature: agr.signature.clone(),
     };
-    let cryptde = CryptDENull::from(
-        substratum_node.public_key(),
-        substratum_node
-            .chain()
-            .map(|chain_name| chain_id_from_name(chain_name.as_str()))
-            .unwrap_or(DEFAULT_CHAIN_ID),
-    );
-    result.regenerate_signed_gossip(&cryptde);
+//    let mut result = NodeRecord {
+//        inner: NodeRecordInner {
+//            data_version: NodeRecordInner::data_version(),
+//            public_key: substratum_node.public_key().clone(),
+//            earning_wallet: substratum_node.earning_wallet(),
+//            rate_pack: substratum_node.rate_pack(),
+//            neighbors: BTreeSet::new(),
+//            originate_only: false,
+//            version: 0,
+//        },
+//        metadata: NodeRecordMetadata {
+//            desirable: true,
+//            node_addr_opt: Some(substratum_node.node_addr()),
+//        },
+//        signed_gossip: PlainData::new(b""),
+//        signature: CryptData::new(b""),
+//    };
+//    let cryptde = CryptDENull::from(
+//        substratum_node.public_key(),
+//        substratum_node
+//            .chain()
+//            .map(|chain_name| chain_id_from_name(chain_name.as_str()))
+//            .unwrap_or(DEFAULT_CHAIN_ID),
+//    );
+//    result.regenerate_signed_gossip(&cryptde);
     result
 }

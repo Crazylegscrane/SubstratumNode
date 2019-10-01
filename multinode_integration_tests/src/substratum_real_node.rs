@@ -606,6 +606,14 @@ impl SubstratumNode for SubstratumRealNode {
     fn chain(&self) -> Option<String> {
         self.guts.chain.clone()
     }
+
+    fn accepts_connections(&self) -> bool {
+        self.guts.accepts_connections
+    }
+
+    fn routes_data(&self) -> bool {
+        self.guts.routes_data
+    }
 }
 
 impl SubstratumRealNode {
@@ -719,6 +727,8 @@ impl SubstratumRealNode {
             root_dir,
             cryptde_null,
             chain: real_startup_config.chain,
+            accepts_connections: vec!["standard"].contains (&real_startup_config.neighborhood_mode.as_str()),
+            routes_data: vec!["standard", "originate-only"].contains (&real_startup_config.neighborhood_mode.as_str()),
         });
         Self { guts }
     }
@@ -1020,6 +1030,8 @@ struct SubstratumRealNodeGuts {
     root_dir: String,
     cryptde_null: Option<CryptDENull>,
     chain: Option<String>,
+    accepts_connections: bool,
+    routes_data: bool,
 }
 
 impl Drop for SubstratumRealNodeGuts {

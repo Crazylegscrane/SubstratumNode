@@ -175,6 +175,8 @@ pub trait SubstratumNode: Any {
     fn rate_pack(&self) -> RatePack;
     // Valid values are "dev, "ropsten" for now. Add "mainnet" when it's time.
     fn chain(&self) -> Option<String>;
+    fn accepts_connections(&self) -> bool;
+    fn routes_data(&self) -> bool;
 }
 
 pub struct SubstratumNodeUtils {}
