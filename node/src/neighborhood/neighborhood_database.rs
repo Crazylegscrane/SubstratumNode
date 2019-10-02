@@ -1,7 +1,7 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 use super::neighborhood_database::NeighborhoodDatabaseError::NodeKeyNotFound;
 use crate::neighborhood::dot_graph::{
-    render_dot_graph, DotRenderable, EdgeRenderable, NodeRenderable,
+    render_dot_graph, DotRenderable, EdgeRenderable, NodeRenderable, NodeRenderableInner,
 };
 use crate::neighborhood::node_record::{NodeRecord, NodeRecordError};
 use crate::sub_lib::cryptde::CryptDE;
@@ -222,7 +222,11 @@ impl NeighborhoodDatabase {
                 })
             });
             node_renderables.push(NodeRenderable {
-                version: Some(nr.version()),
+                inner: Some(NodeRenderableInner {
+                    version: nr.version(),
+                    accepts_connections: nr.accepts_connections(),
+                    routes_data: nr.routes_data(),
+                }),
                 public_key: public_key.clone(),
                 node_addr: nr.node_addr_opt().clone(),
                 known_source: public_key == self.root().public_key(),
@@ -232,7 +236,7 @@ impl NeighborhoodDatabase {
         });
         mentioned.difference(&present).for_each(|k| {
             node_renderables.push(NodeRenderable {
-                version: None,
+                inner: None,
                 public_key: k.clone(),
                 node_addr: None,
                 known_source: false,
@@ -680,19 +684,19 @@ mod tests {
         assert_eq!(result.matches("->").count(), 8);
         assert_string_contains(
             &result,
-            "\"AQIDBA\" [label=\"v1\\nAQIDBA\\n1.2.3.4:1234\"] [style=filled];",
+            "\"AQIDBA\" [label=\"AR v1\\nAQIDBA\\n1.2.3.4:1234\"] [style=filled];",
         );
         assert_string_contains(
             &result,
-            "\"AgMEBQ\" [label=\"v0\\nAgMEBQ\\n2.3.4.5:2345\"];",
+            "\"AgMEBQ\" [label=\"AR v0\\nAgMEBQ\\n2.3.4.5:2345\"];",
         );
         assert_string_contains(
             &result,
-            "\"AwQFBg\" [label=\"v0\\nAwQFBg\\n3.4.5.6:3456\"];",
+            "\"AwQFBg\" [label=\"AR v0\\nAwQFBg\\n3.4.5.6:3456\"];",
         );
         assert_string_contains(
             &result,
-            "\"BAUGBw\" [label=\"v0\\nBAUGBw\\n4.5.6.7:4567\"];",
+            "\"BAUGBw\" [label=\"AR v0\\nBAUGBw\\n4.5.6.7:4567\"];",
         );
         assert_string_contains(&result, "\"AQIDBA\" -> \"AgMEBQ\";");
         assert_string_contains(&result, "\"AgMEBQ\" -> \"AQIDBA\";");

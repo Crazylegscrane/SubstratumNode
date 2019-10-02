@@ -5,6 +5,7 @@ use crate::neighborhood::neighborhood_database::{NeighborhoodDatabase, Neighborh
 use crate::neighborhood::{regenerate_signed_gossip, AccessibleGossipRecord};
 use crate::sub_lib::cryptde::{CryptDE, CryptData, PlainData, PublicKey};
 use crate::sub_lib::data_version::DataVersion;
+use crate::sub_lib::neighborhood::NodeDescriptor;
 use crate::sub_lib::neighborhood::RatePack;
 use crate::sub_lib::node_addr::NodeAddr;
 use crate::sub_lib::wallet::Wallet;
@@ -99,6 +100,10 @@ impl NodeRecord {
 
     pub fn node_addr_opt(&self) -> Option<NodeAddr> {
         self.metadata.node_addr_opt.clone()
+    }
+
+    pub fn node_descriptor(&self, cryptde: &dyn CryptDE, chain_id: u8) -> String {
+        NodeDescriptor::from(self).to_string(cryptde, chain_id)
     }
 
     pub fn set_node_addr(
@@ -368,6 +373,28 @@ mod tests {
         let result = subject.set_node_addr(&second_node_addr);
         assert_eq!(result, Ok(false));
         assert_eq!(subject.node_addr_opt(), Some(first_node_addr));
+    }
+
+    #[test]
+    fn node_descriptor_works_when_node_addr_is_present() {
+        let mut subject = make_node_record(1234, true);
+        subject.metadata.node_addr_opt = Some(NodeAddr::new(
+            &subject.metadata.node_addr_opt.unwrap().ip_addr(),
+            &vec![1234, 2345],
+        ));
+
+        let result = subject.node_descriptor(cryptde(), DEFAULT_CHAIN_ID);
+
+        assert_eq!(result, "AQIDBA:1.2.3.4:1234;2345".to_string());
+    }
+
+    #[test]
+    fn node_descriptor_works_when_node_addr_is_not_present() {
+        let subject: NodeRecord = make_node_record(1234, false);
+
+        let result = subject.node_descriptor(cryptde(), DEFAULT_CHAIN_ID);
+
+        assert_eq!(result, "AQIDBA::".to_string());
     }
 
     #[test]

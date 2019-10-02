@@ -425,10 +425,7 @@ impl Bootstrapper {
         let descriptor = match ip_addr_opt {
             Some(ip_addr) => {
                 let node_addr = NodeAddr::new(&ip_addr, &ports);
-                let node_descriptor = NodeDescriptor {
-                    public_key: cryptde.public_key().clone(),
-                    node_addr,
-                };
+                let node_descriptor = NodeDescriptor::from((cryptde.public_key(), &node_addr));
                 node_descriptor.to_string(cryptde, chain_id)
             }
             None => format!(
@@ -1345,10 +1342,10 @@ mod tests {
         config.neighborhood_config = NeighborhoodConfig {
             mode: NeighborhoodMode::Standard(
                 NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![4321]),
-                vec![NodeDescriptor {
-                    public_key: cryptde.public_key().clone(),
-                    node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
-                }
+                vec![NodeDescriptor::from((
+                    cryptde.public_key(),
+                    &NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
+                ))
                 .to_string(&cryptde, DEFAULT_CHAIN_ID)],
                 rate_pack(100),
             ),
@@ -1407,10 +1404,10 @@ mod tests {
         config.neighborhood_config = NeighborhoodConfig {
             mode: NeighborhoodMode::Standard(
                 NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![]),
-                vec![NodeDescriptor {
-                    public_key: cryptde.public_key().clone(),
-                    node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
-                }
+                vec![NodeDescriptor::from((
+                    cryptde.public_key(),
+                    &NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
+                ))
                 .to_string(&cryptde, DEFAULT_CHAIN_ID)],
                 rate_pack(100),
             ),
@@ -1451,10 +1448,10 @@ mod tests {
         config.clandestine_port_opt = None;
         config.neighborhood_config = NeighborhoodConfig {
             mode: NeighborhoodMode::OriginateOnly(
-                vec![NodeDescriptor {
-                    public_key: cryptde.public_key().clone(),
-                    node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
-                }
+                vec![NodeDescriptor::from((
+                    cryptde.public_key(),
+                    &NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
+                ))
                 .to_string(&cryptde, DEFAULT_CHAIN_ID)],
                 rate_pack(100),
             ),
@@ -1486,10 +1483,10 @@ mod tests {
         config.data_directory = data_dir.clone();
         config.clandestine_port_opt = None;
         config.neighborhood_config = NeighborhoodConfig {
-            mode: NeighborhoodMode::ConsumeOnly(vec![NodeDescriptor {
-                public_key: cryptde.public_key().clone(),
-                node_addr: NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
-            }
+            mode: NeighborhoodMode::ConsumeOnly(vec![NodeDescriptor::from((
+                cryptde.public_key(),
+                &NodeAddr::new(&IpAddr::from_str("1.2.3.4").unwrap(), &vec![1234]),
+            ))
             .to_string(&cryptde, DEFAULT_CHAIN_ID)]),
         };
         let listener_handler = ListenerHandlerNull::new(vec![]);

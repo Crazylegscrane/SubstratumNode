@@ -384,6 +384,26 @@ impl NodeStartupConfigBuilder {
         }
     }
 
+    pub fn originate_only() -> Self {
+        Self {
+            neighborhood_mode: "originate-only".to_string(),
+            ip_info: LocalIpInfo::DistributedUnknown,
+            dns_servers: vec![IpAddr::from_str("8.8.8.8").unwrap()],
+            neighbors: vec![],
+            clandestine_port_opt: None,
+            dns_target: localhost(),
+            dns_port: 53,
+            earning_wallet_info: EarningWalletInfo::None,
+            consuming_wallet_info: ConsumingWalletInfo::None,
+            rate_pack: DEFAULT_RATE_PACK.clone(),
+            firewall: None,
+            memory: None,
+            fake_public_key: None,
+            blockchain_service_url: None,
+            chain: None,
+        }
+    }
+
     pub fn standard() -> Self {
         Self {
             neighborhood_mode: "standard".to_string(),
@@ -1062,6 +1082,7 @@ mod tests {
         assert_eq!(result.clandestine_port_opt, None);
         assert_eq!(result.dns_target, localhost());
         assert_eq!(result.dns_port, 53);
+        assert_eq!(result.neighborhood_mode, "zero-hop".to_string());
     }
 
     #[test]
@@ -1085,6 +1106,23 @@ mod tests {
         assert_eq!(result.clandestine_port_opt, None);
         assert_eq!(result.dns_target, localhost());
         assert_eq!(result.dns_port, 53);
+        assert_eq!(result.neighborhood_mode, "standard".to_string());
+    }
+
+    #[test]
+    fn node_startup_config_builder_originate_only() {
+        let result = NodeStartupConfigBuilder::originate_only().build();
+
+        assert_eq!(result.ip_info, LocalIpInfo::DistributedUnknown);
+        assert_eq!(
+            result.dns_servers,
+            vec!(IpAddr::from_str("8.8.8.8").unwrap())
+        );
+        assert_eq!(result.neighbors, vec!());
+        assert_eq!(result.clandestine_port_opt, None);
+        assert_eq!(result.dns_target, localhost());
+        assert_eq!(result.dns_port, 53);
+        assert_eq!(result.neighborhood_mode, "originate-only".to_string());
     }
 
     #[test]

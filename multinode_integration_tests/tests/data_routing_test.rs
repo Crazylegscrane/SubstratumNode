@@ -65,6 +65,44 @@ fn http_end_to_end_routing_test() {
 }
 
 #[test]
+fn http_end_to_end_routing_test_with_originate_only_nodes() {
+    let mut cluster = SubstratumNodeCluster::start().unwrap();
+    let first_node = cluster.start_real_node(NodeStartupConfigBuilder::standard().build());
+    let _second_node = cluster.start_real_node(
+        NodeStartupConfigBuilder::standard()
+            .neighbor(first_node.node_reference())
+            .build(),
+    );
+    let originating_node = cluster.start_real_node(
+        NodeStartupConfigBuilder::originate_only()
+            .neighbor(first_node.node_reference())
+            .build(),
+    );
+    let _exit_node = cluster.start_real_node(
+        NodeStartupConfigBuilder::originate_only()
+            .neighbor(first_node.node_reference())
+            .build(),
+    );
+
+    thread::sleep(Duration::from_millis(2000));
+
+    let mut client = originating_node.make_client(8080);
+    client.send_chunk(b"GET / HTTP/1.1\r\nHost: www.example.com\r\n\r\n");
+    let response = client.wait_for_chunk();
+
+    assert_eq!(
+        index_of(
+            &response,
+            &b"This domain is established to be used for illustrative examples in documents."[..]
+        )
+        .is_some(),
+        true,
+        "Actual response:\n{}",
+        String::from_utf8(response).unwrap()
+    );
+}
+
+#[test]
 fn tls_end_to_end_routing_test() {
     let mut cluster = SubstratumNodeCluster::start().unwrap();
     let first_node = cluster.start_real_node(NodeStartupConfigBuilder::standard().build());

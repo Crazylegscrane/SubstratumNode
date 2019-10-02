@@ -1,5 +1,6 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 use crate::neighborhood::gossip::Gossip;
+use crate::neighborhood::node_record::NodeRecord;
 use crate::sub_lib::cryptde::{CryptDE, PublicKey};
 use crate::sub_lib::dispatcher::{Component, StreamShutdownMsg};
 use crate::sub_lib::hopper::ExpiredCoresPackage;
@@ -32,12 +33,6 @@ pub const ZERO_RATE_PACK: RatePack = RatePack {
     exit_byte_rate: 0,
     exit_service_rate: 0,
 };
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct NodeDescriptor {
-    pub public_key: PublicKey,
-    pub node_addr: NodeAddr,
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum NeighborhoodMode {
@@ -129,6 +124,40 @@ impl NeighborhoodMode {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodeDescriptor {
+    pub public_key: PublicKey,
+    pub node_addr_opt: Option<NodeAddr>,
+}
+
+impl From<(&PublicKey, &NodeAddr)> for NodeDescriptor {
+    fn from(pair: (&PublicKey, &NodeAddr)) -> Self {
+        let (public_key, node_addr) = pair;
+        NodeDescriptor {
+            public_key: public_key.clone(),
+            node_addr_opt: Some(node_addr.clone()),
+        }
+    }
+}
+
+impl From<&PublicKey> for NodeDescriptor {
+    fn from(public_key: &PublicKey) -> Self {
+        NodeDescriptor {
+            public_key: public_key.clone(),
+            node_addr_opt: None,
+        }
+    }
+}
+
+impl From<&NodeRecord> for NodeDescriptor {
+    fn from(node_record: &NodeRecord) -> Self {
+        NodeDescriptor {
+            public_key: node_record.public_key().clone(),
+            node_addr_opt: node_record.node_addr_opt(),
+        }
+    }
+}
+
 impl NodeDescriptor {
     pub fn from_str(
         cryptde: &dyn CryptDE,
@@ -147,20 +176,29 @@ impl NodeDescriptor {
             Ok(hpk) => hpk,
         };
 
-        let node_addr = match NodeAddr::from_str(&pieces[1]) {
-            Err(_) => return Err(String::from(s)),
-            Ok(node_addr) => node_addr,
+        let node_addr_opt = {
+            if pieces[1] == ":" {
+                None
+            } else {
+                match NodeAddr::from_str(&pieces[1]) {
+                    Err(_) => return Err(String::from(s)),
+                    Ok(node_addr) => Some(node_addr),
+                }
+            }
         };
 
         Ok(NodeDescriptor {
             public_key,
-            node_addr,
+            node_addr_opt,
         })
     }
 
     pub fn to_string(&self, cryptde: &dyn CryptDE, chain_id: u8) -> String {
         let contact_public_key_string = cryptde.public_key_to_descriptor_fragment(&self.public_key);
-        let node_addr_string = self.node_addr.to_string();
+        let node_addr_string = match &self.node_addr_opt {
+            Some(node_addr) => node_addr.to_string(),
+            None => ":".to_string(),
+        };
         let delimiter = node_descriptor_delimiter(chain_id);
         format!(
             "{}{}{}",
@@ -379,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    fn node_descriptor_from_str_handles_the_happy_path() {
+    fn node_descriptor_from_str_handles_the_happy_path_with_node_addr() {
         let result = NodeDescriptor::from_str(
             cryptde(),
             "R29vZEtleQ:1.2.3.4:1234;2345;3456",
@@ -390,10 +428,23 @@ mod tests {
             result.unwrap(),
             NodeDescriptor {
                 public_key: PublicKey::new(b"GoodKey"),
-                node_addr: NodeAddr::new(
+                node_addr_opt: Some(NodeAddr::new(
                     &IpAddr::from_str("1.2.3.4").unwrap(),
                     &vec!(1234, 2345, 3456),
-                )
+                ))
+            },
+        )
+    }
+
+    #[test]
+    fn node_descriptor_from_str_handles_the_happy_path_without_node_addr() {
+        let result = NodeDescriptor::from_str(cryptde(), "R29vZEtleQ::", DEFAULT_CHAIN_ID);
+
+        assert_eq!(
+            result.unwrap(),
+            NodeDescriptor {
+                public_key: PublicKey::new(b"GoodKey"),
+                node_addr_opt: None
             },
         )
     }
@@ -408,12 +459,46 @@ mod tests {
             result.unwrap(),
             NodeDescriptor {
                 public_key: PublicKey::new(b"GoodKey"),
-                node_addr: NodeAddr::new(
+                node_addr_opt: Some(NodeAddr::new(
                     &IpAddr::from_str("1.2.3.4").unwrap(),
                     &vec!(1234, 2345, 3456),
-                )
+                ))
             },
         )
+    }
+
+    #[test]
+    fn node_descriptor_from_key_and_node_addr_works() {
+        let public_key = PublicKey::new(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        let node_addr = NodeAddr::new(
+            &IpAddr::from_str("123.45.67.89").unwrap(),
+            &vec![2345, 3456],
+        );
+
+        let result = NodeDescriptor::from((&public_key, &node_addr));
+
+        assert_eq!(
+            result,
+            NodeDescriptor {
+                public_key,
+                node_addr_opt: Some(node_addr),
+            }
+        );
+    }
+
+    #[test]
+    fn node_descriptor_from_key_works() {
+        let public_key = PublicKey::new(&[1, 2, 3, 4, 5, 6, 7, 8]);
+
+        let result = NodeDescriptor::from(&public_key);
+
+        assert_eq!(
+            result,
+            NodeDescriptor {
+                public_key,
+                node_addr_opt: None,
+            }
+        );
     }
 
     #[test]

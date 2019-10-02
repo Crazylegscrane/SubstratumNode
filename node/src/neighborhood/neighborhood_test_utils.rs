@@ -33,13 +33,12 @@ pub fn make_node_record(n: u16, has_ip: bool) -> NodeRecord {
     let key = PublicKey::new(&[a, b, c, d]);
     let ip_addr = IpAddr::V4(Ipv4Addr::new(a, b, c, d));
     let node_addr = NodeAddr::new(&ip_addr, &vec![n % 10000]);
-    let accepts_connections = has_ip;
 
     NodeRecord::new_for_tests(
         &key,
         if has_ip { Some(&node_addr) } else { None },
         n as u64,
-        accepts_connections,
+        true,
         true,
     )
 }
@@ -90,13 +89,7 @@ pub fn neighborhood_from_nodes(
         Some(neighbor) => NeighborhoodConfig {
             mode: NeighborhoodMode::Standard(
                 root.node_addr_opt().expect("Test-drive me!"),
-                vec![NodeDescriptor {
-                    public_key: neighbor.public_key().clone(),
-                    node_addr: neighbor
-                        .node_addr_opt()
-                        .expect("Neighbor has to have NodeAddr"),
-                }
-                .to_string(cryptde, DEFAULT_CHAIN_ID)],
+                vec![NodeDescriptor::from(neighbor).to_string(cryptde, DEFAULT_CHAIN_ID)],
                 root.rate_pack().clone(),
             ),
         },

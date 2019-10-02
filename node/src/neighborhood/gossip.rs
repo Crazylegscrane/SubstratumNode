@@ -2,7 +2,7 @@
 use super::node_record::NodeRecord;
 use super::node_record::NodeRecordInner;
 use crate::neighborhood::dot_graph::{
-    render_dot_graph, DotRenderable, EdgeRenderable, NodeRenderable,
+    render_dot_graph, DotRenderable, EdgeRenderable, NodeRenderable, NodeRenderableInner,
 };
 use crate::neighborhood::neighborhood_database::NeighborhoodDatabase;
 use crate::neighborhood::AccessibleGossipRecord;
@@ -354,7 +354,11 @@ impl Gossip {
                 })
             });
             node_renderables.push(NodeRenderable {
-                version: Some(nri.version),
+                inner: Some(NodeRenderableInner {
+                    version: nri.version,
+                    accepts_connections: nri.accepts_connections,
+                    routes_data: nri.routes_data,
+                }),
                 public_key: nri.public_key.clone(),
                 node_addr: addr.clone(),
                 known_source: nri.public_key == source.public_key,
@@ -364,7 +368,7 @@ impl Gossip {
         });
         mentioned.difference(&present).for_each(|k| {
             node_renderables.push(NodeRenderable {
-                version: None,
+                inner: None,
                 public_key: k.clone(),
                 node_addr: None,
                 known_source: false,
@@ -435,6 +439,7 @@ impl<'a> GossipBuilder<'a> {
 mod tests {
     use super::super::gossip::GossipBuilder;
     use super::super::neighborhood_test_utils::make_node_record;
+    use super::super::neighborhood_test_utils::make_node_record_f;
     use super::*;
     use crate::neighborhood::neighborhood_test_utils::db_from_node;
     use crate::test_utils::{assert_string_contains, vec_to_btset};
@@ -479,8 +484,12 @@ mod tests {
 
     #[test]
     fn adding_node_with_no_addr_and_reveal_results_in_node_with_no_addr() {
-        let node = make_node_record(1234, false);
-        let mut db = db_from_node(&node);
+        let node = make_node_record_f(1234, false, false, true);
+        let mut db: NeighborhoodDatabase = db_from_node(&node);
+        db.node_by_key_mut(node.public_key())
+            .unwrap()
+            .inner
+            .accepts_connections = true;
         let gossip_node = &db.add_node(make_node_record(2345, false)).unwrap();
         let builder = GossipBuilder::new(&db);
 
@@ -492,8 +501,12 @@ mod tests {
 
     #[test]
     fn adding_node_with_no_addr_and_no_reveal_results_in_node_with_no_addr() {
-        let node = make_node_record(1234, false);
-        let db = db_from_node(&node);
+        let node = make_node_record_f(1234, false, false, true);
+        let mut db: NeighborhoodDatabase = db_from_node(&node);
+        db.node_by_key_mut(node.public_key())
+            .unwrap()
+            .inner
+            .accepts_connections = true;
         let builder = GossipBuilder::new(&db);
 
         let builder = builder.node(node.public_key(), false);
@@ -679,14 +692,14 @@ Length: 4 (0x4) bytes
         let result = gossip.to_dot_graph(&source_node, &target_node);
 
         assert_string_contains(&result, "digraph db { ");
-        assert_string_contains(&result, "\"AwQFBg\" [label=\"v0\\nAwQFBg\"]; ");
+        assert_string_contains(&result, "\"AwQFBg\" [label=\"AR v0\\nAwQFBg\"]; ");
         assert_string_contains(
             &result,
-            "\"QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo\" [label=\"v1\\nQUJDREVG\\n1.2.3.4:1234\"] [style=filled]; ",
+            "\"QUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVo\" [label=\"AR v1\\nQUJDREVG\\n1.2.3.4:1234\"] [style=filled]; ",
         );
         assert_string_contains(
             &result,
-            "\"WllYV1ZVVFNSUVBPTk1MS0pJSEdGRURDQkE\" [label=\"v0\\nWllYV1ZV\\n2.3.4.5:2345\"] [shape=box]; ",
+            "\"WllYV1ZVVFNSUVBPTk1MS0pJSEdGRURDQkE\" [label=\"AR v0\\nWllYV1ZV\\n2.3.4.5:2345\"] [shape=box]; ",
         );
         assert_string_contains(
             &result,
