@@ -3,6 +3,20 @@
 CI_DIR="$( cd "$( dirname "$0" )" && pwd )"
 STATUS=$1
 
+case "$OSTYPE" in
+  msys)
+    GENERATED_TYPE="windows"
+    ;;
+  Darwin | darwin*)
+    GENERATED_TYPE="mac"
+    ;;
+  linux*)
+    GENERATED_TYPE="linux"
+    ;;
+  *)
+    GENERATED_TYPE="unknown"
+    ;;
+esac
 if [[ "$GITHUB_TOKEN" == "" ]]; then
   echo "No GITHUB_TOKEN set; can't publish results"
   exit 0
@@ -18,7 +32,6 @@ if [[ "$RESULTS_REPO_NAME" == "" ]]; then
   exit 0
 fi
 
-GENERATED_TYPE=${AGENT_JOBNAME//Job /}
 GENERATED_NAME="generated-$GENERATED_TYPE"
 
 pushd "$CI_DIR/../results"
@@ -42,6 +55,7 @@ git rm "results/$RESULTS_LABEL/$GENERATED_NAME.tar.gz" || echo "First time for $
 cp ../generated.tar.gz "results/$RESULTS_LABEL/$GENERATED_NAME.tar.gz"
 git add README.md "results/$RESULTS_LABEL/$GENERATED_NAME.tar.gz"
 git commit -m "Latest results for $RESULTS_LABEL ($GENERATED_TYPE) - $STATUS"
+git pull
 git push
 
 popd
