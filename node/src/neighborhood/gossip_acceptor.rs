@@ -120,19 +120,21 @@ impl GossipHandler for DebutHandler {
         mut agrs: Vec<AccessibleGossipRecord>,
         gossip_source: SocketAddr,
     ) -> GossipAcceptanceResult {
-        let source_agr = agrs.remove(0); // empty Gossip shouldn't get here
-        let source_key = source_agr.inner.public_key.clone();
-        let source_node_addr_opt = source_agr.node_addr_opt.clone();
-        let source_node_addr = match source_node_addr_opt {
-            Some(source_node_addr) => source_node_addr,
-            None => NodeAddr::from(&gossip_source),
+        let source_agr = {
+            let mut agr = agrs.remove(0); // empty Gossip shouldn't get here
+            if agr.node_addr_opt.is_none() {
+                agr.node_addr_opt = Some (NodeAddr::from (&gossip_source));
+            }
+            agr
         };
+        let source_key = source_agr.inner.public_key.clone();
+        let source_node_addr = source_agr.node_addr_opt.as_ref().expect ("Source Node NodeAddr disappeared").clone();
         if let Some(preferred_key) = self.find_more_appropriate_neighbor(database, &source_agr) {
             let preferred_ip = database
                 .node_by_key(preferred_key)
-                .expect("Disappeared")
+                .expect("Preferred Node disappeared")
                 .node_addr_opt()
-                .expect("Disappeared")
+                .expect("Preferred Node's NodeAddr disappeared")
                 .ip_addr();
             debug!(self.logger,
                 "DebutHandler is commissioning Pass of {} at {} to more appropriate neighbor {} at {}",
@@ -164,19 +166,17 @@ impl GossipHandler for DebutHandler {
             }
             Some(key) => key,
         };
-        let lcn_ip = database
-            .node_by_key(lcn_key)
-            .expect("Disappeared")
-            .node_addr_opt()
-            .expect("Disappeared")
-            .ip_addr();
+        let lcn_ip_str = match database.node_by_key(lcn_key).expect("LCN Disappeared").node_addr_opt() {
+            Some (node_addr) => node_addr.ip_addr().to_string(),
+            None => "?.?.?.?".to_string()
+        };
         debug!(
             self.logger,
             "DebutHandler is commissioning Pass of {} at {} to {} at {}",
             source_key,
             source_node_addr.ip_addr(),
             lcn_key,
-            lcn_ip
+            lcn_ip_str
         );
         GossipAcceptanceResult::Reply(
             Self::make_pass_gossip(database, lcn_key),
@@ -263,9 +263,13 @@ impl DebutHandler {
                 root_mut.regenerate_signed_gossip(cryptde);
                 trace!(self.logger, "Current database: {}", database.to_dot_graph());
                 if Self::should_not_make_introduction(&debuting_agr) {
+                    let ip_addr_str = match &debuting_agr.node_addr_opt {
+                        Some(node_addr) => node_addr.ip_addr().to_string(),
+                        None => "?.?.?.?".to_string(),
+                    };
                     debug!(self.logger, "Node {} at {} is responding to first introduction: sending update Gossip instead of further introduction",
                                               debuting_agr.inner.public_key,
-                                              debuting_agr.node_addr_opt.as_ref().expect("Disappeared").ip_addr());
+                                              ip_addr_str);
                     Ok(GossipAcceptanceResult::Accepted)
                 } else {
                     match self.make_introduction(database, &debuting_agr, gossip_source) {
@@ -301,11 +305,13 @@ impl DebutHandler {
         if let Some(lcn_key) =
             Self::find_least_connected_full_neighbor_excluding(database, debuting_agr)
         {
-            let lcn_node_addr = database
+            let lcn_node_addr_str = match database
                 .node_by_key(lcn_key)
-                .expect("Disappeared")
-                .node_addr_opt()
-                .expect("Disappeared");
+                .expect("LCN disappeared")
+                .node_addr_opt() {
+                Some (node_addr) => node_addr.to_string(),
+                None => "?.?.?.?:?".to_string(),
+            };
             let debut_node_addr = match &debuting_agr.node_addr_opt {
                 Some(node_addr) => node_addr.clone(),
                 None => NodeAddr::from(&gossip_source),
@@ -314,7 +320,7 @@ impl DebutHandler {
                 self.logger,
                 "DebutHandler commissioning Introduction of {} at {} to {} at {}",
                 lcn_key,
-                lcn_node_addr,
+                lcn_node_addr_str,
                 &debuting_agr.inner.public_key,
                 debut_node_addr
             );
@@ -635,16 +641,15 @@ impl IntroductionHandler {
                 introducer_node_addr.ip_addr()
             )));
         }
-        if introducer_node_addr.ip_addr()
-            == root_node
-                .node_addr_opt()
-                .expect("Root node must have NodeAddr")
-                .ip_addr()
-        {
-            return Some(Qualification::Malformed(format!(
-                "Introducer {} claims to be at local Node's IP address",
-                agr.inner.public_key
-            )));
+        if let Some(root_node_addr) = root_node.node_addr_opt() {
+            if introducer_node_addr.ip_addr()
+                == root_node_addr.ip_addr()
+            {
+                return Some(Qualification::Malformed(format!(
+                    "Introducer {} claims to be at local Node's IP address",
+                    agr.inner.public_key
+                )));
+            }
         }
         None
     }
@@ -666,11 +671,10 @@ impl IntroductionHandler {
             return Some(Qualification::Malformed(format!(
                 "Introducer {} from {} introduced {} from {} with no ports",
                 &introducer.inner.public_key,
-                introducer
-                    .node_addr_opt
-                    .as_ref()
-                    .expect("Disappeared")
-                    .ip_addr(),
+                match &introducer.node_addr_opt {
+                    Some (node_addr) => node_addr.ip_addr().to_string(),
+                    None => "?.?.?.?".to_string(),
+                },
                 &introducee.inner.public_key,
                 introducee_node_addr.ip_addr()
             )));
@@ -678,7 +682,7 @@ impl IntroductionHandler {
         if introducee
             .node_addr_opt
             .as_ref()
-            .expect("Disappeared")
+            .expect("Introducee NodeAddr disappeared")
             .ip_addr()
             == gossip_source.ip()
         {
@@ -768,17 +772,19 @@ impl GossipHandler for StandardGossipHandler {
             .filter(|agr| agr.node_addr_opt.is_some())
             .collect::<Vec<&AccessibleGossipRecord>>();
         let root_node = database.root();
-        if let Some(impostor) = agrs_next_door.iter().find(|agr| {
-            Self::ip_of(agr)
-                == root_node
+        if root_node.accepts_connections() {
+            if let Some(impostor) = agrs_next_door.iter().find(|agr| {
+                Self::ip_of(agr)
+                    == root_node
                     .node_addr_opt()
-                    .expect("Root Node must have NodeAddr")
+                    .expect("Root Node that accepts connections must have NodeAddr")
                     .ip_addr()
-        }) {
-            return Qualification::Malformed(
+            }) {
+                return Qualification::Malformed(
                     format!("Standard Gossip from {} contains a record claiming that {} has this Node's IP address",
                             gossip_source,
                             impostor.inner.public_key));
+            }
         }
         if agrs
             .iter()
@@ -808,7 +814,7 @@ impl GossipHandler for StandardGossipHandler {
             Qualification::Matched
         } else {
             let dup_vec = dup_set.into_iter().take(1).collect::<Vec<IpAddr>>();
-            let first_dup_ip = dup_vec.first().expect("Disappeared");
+            let first_dup_ip = dup_vec.first().expect("Duplicate IP address disappeared");
             Qualification::Malformed(format!(
                 "Standard Gossip from {} contains multiple records claiming to be from {}",
                 gossip_source, first_dup_ip
@@ -1639,6 +1645,19 @@ mod tests {
             &introducer_before_gossip,
             dest_db.node_by_key(introducer_key).unwrap()
         );
+    }
+
+    #[test]
+    fn introduction_with_no_problems_qualifies_when_no_local_ip_address_is_known() {
+        let (gossip, gossip_source) = make_introduction(2345, 3456);
+        let dest_root = make_node_record_f(7878, false, false, true);
+        let dest_db = db_from_node(&dest_root);
+        let subject = IntroductionHandler::new(Logger::new("test"));
+        let agrs: Vec<AccessibleGossipRecord> = gossip.try_into().unwrap();
+
+        let result = subject.qualifies(&dest_db, &agrs, gossip_source);
+
+        assert_eq!(Qualification::Matched, result);
     }
 
     #[test]

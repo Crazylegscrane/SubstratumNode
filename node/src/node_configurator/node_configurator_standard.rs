@@ -24,8 +24,8 @@ impl NodeConfigurator<BootstrapperConfig> for NodeConfiguratorStandardPrivileged
         let app = app();
         let multi_config = standard::make_service_mode_multi_config(&app, args);
         let mut bootstrapper_config = BootstrapperConfig::new();
-        standard::privileged_parse_args(&multi_config, &mut bootstrapper_config, streams);
         standard::establish_port_configurations(&mut bootstrapper_config);
+        standard::privileged_parse_args(&multi_config, &mut bootstrapper_config, streams);
         bootstrapper_config
     }
 }

@@ -470,10 +470,10 @@ impl Bootstrapper {
                     rate_pack.clone(),
                 ),
             };
-            self.config
-                .clandestine_discriminator_factories
-                .push(Box::new(JsonDiscriminatorFactory::new()));
         }
+        self.config
+            .clandestine_discriminator_factories
+            .push(Box::new(JsonDiscriminatorFactory::new()));
     }
 }
 

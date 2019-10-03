@@ -84,7 +84,7 @@ fn http_end_to_end_routing_test_with_originate_only_nodes() {
             .build(),
     );
 
-    thread::sleep(Duration::from_millis(2000));
+    thread::sleep(Duration::from_millis(1000));
 
     let mut client = originating_node.make_client(8080);
     client.send_chunk(b"GET / HTTP/1.1\r\nHost: www.example.com\r\n\r\n");

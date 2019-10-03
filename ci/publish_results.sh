@@ -38,6 +38,7 @@ echo "$NEW_LINE" >> README.md
 cat README.md.clean | sed -n '/\(Results Marker\)/,$p' | tail -n+2 >> README.md
 
 mkdir -p "results/$RESULTS_LABEL"
+git rm "results/$RESULTS_LABEL/$GENERATED_NAME.tar.gz" || echo "First time for $RESULTS_LABEL/$GENERATED_NAME"
 cp ../generated.tar.gz "results/$RESULTS_LABEL/$GENERATED_NAME.tar.gz"
 git add README.md "results/$RESULTS_LABEL/$GENERATED_NAME.tar.gz"
 git commit -m "Latest results for $RESULTS_LABEL ($GENERATED_TYPE) - $STATUS"
