@@ -393,8 +393,12 @@ impl NodeStartupConfigBuilder {
             clandestine_port_opt: None,
             dns_target: localhost(),
             dns_port: 53,
-            earning_wallet_info: EarningWalletInfo::Address("0xEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE".to_string()),
-            consuming_wallet_info: ConsumingWalletInfo::PrivateKey("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string()),
+            earning_wallet_info: EarningWalletInfo::Address(
+                "0xEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE".to_string(),
+            ),
+            consuming_wallet_info: ConsumingWalletInfo::PrivateKey(
+                "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string(),
+            ),
             rate_pack: DEFAULT_RATE_PACK.clone(),
             firewall: None,
             memory: None,

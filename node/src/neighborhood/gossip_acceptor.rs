@@ -123,12 +123,16 @@ impl GossipHandler for DebutHandler {
         let source_agr = {
             let mut agr = agrs.remove(0); // empty Gossip shouldn't get here
             if agr.node_addr_opt.is_none() {
-                agr.node_addr_opt = Some (NodeAddr::from (&gossip_source));
+                agr.node_addr_opt = Some(NodeAddr::from(&gossip_source));
             }
             agr
         };
         let source_key = source_agr.inner.public_key.clone();
-        let source_node_addr = source_agr.node_addr_opt.as_ref().expect ("Source Node NodeAddr disappeared").clone();
+        let source_node_addr = source_agr
+            .node_addr_opt
+            .as_ref()
+            .expect("Source Node NodeAddr disappeared")
+            .clone();
         if let Some(preferred_key) = self.find_more_appropriate_neighbor(database, &source_agr) {
             let preferred_ip = database
                 .node_by_key(preferred_key)
@@ -166,9 +170,13 @@ impl GossipHandler for DebutHandler {
             }
             Some(key) => key,
         };
-        let lcn_ip_str = match database.node_by_key(lcn_key).expect("LCN Disappeared").node_addr_opt() {
-            Some (node_addr) => node_addr.ip_addr().to_string(),
-            None => "?.?.?.?".to_string()
+        let lcn_ip_str = match database
+            .node_by_key(lcn_key)
+            .expect("LCN Disappeared")
+            .node_addr_opt()
+        {
+            Some(node_addr) => node_addr.ip_addr().to_string(),
+            None => "?.?.?.?".to_string(),
         };
         debug!(
             self.logger,
@@ -308,8 +316,9 @@ impl DebutHandler {
             let lcn_node_addr_str = match database
                 .node_by_key(lcn_key)
                 .expect("LCN disappeared")
-                .node_addr_opt() {
-                Some (node_addr) => node_addr.to_string(),
+                .node_addr_opt()
+            {
+                Some(node_addr) => node_addr.to_string(),
                 None => "?.?.?.?:?".to_string(),
             };
             let debut_node_addr = match &debuting_agr.node_addr_opt {
@@ -642,9 +651,7 @@ impl IntroductionHandler {
             )));
         }
         if let Some(root_node_addr) = root_node.node_addr_opt() {
-            if introducer_node_addr.ip_addr()
-                == root_node_addr.ip_addr()
-            {
+            if introducer_node_addr.ip_addr() == root_node_addr.ip_addr() {
                 return Some(Qualification::Malformed(format!(
                     "Introducer {} claims to be at local Node's IP address",
                     agr.inner.public_key
@@ -672,7 +679,7 @@ impl IntroductionHandler {
                 "Introducer {} from {} introduced {} from {} with no ports",
                 &introducer.inner.public_key,
                 match &introducer.node_addr_opt {
-                    Some (node_addr) => node_addr.ip_addr().to_string(),
+                    Some(node_addr) => node_addr.ip_addr().to_string(),
                     None => "?.?.?.?".to_string(),
                 },
                 &introducee.inner.public_key,
@@ -776,9 +783,9 @@ impl GossipHandler for StandardGossipHandler {
             if let Some(impostor) = agrs_next_door.iter().find(|agr| {
                 Self::ip_of(agr)
                     == root_node
-                    .node_addr_opt()
-                    .expect("Root Node that accepts connections must have NodeAddr")
-                    .ip_addr()
+                        .node_addr_opt()
+                        .expect("Root Node that accepts connections must have NodeAddr")
+                        .ip_addr()
             }) {
                 return Qualification::Malformed(
                     format!("Standard Gossip from {} contains a record claiming that {} has this Node's IP address",
