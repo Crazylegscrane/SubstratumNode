@@ -513,11 +513,10 @@ mod standard {
                 if neighbor_configs.is_empty () {
                     panic! ("Node cannot run as --neighborhood_mode consume-only without --neighbors specified")
                 }
-                unimplemented! ("Consume-Only mode is coming, but it is not yet completely implemented. Sorry.");
-//                NeighborhoodConfig {
-//                    mode: NeighborhoodMode::ConsumeOnly (
-//                    neighbor_configs,
-//                )}
+                NeighborhoodConfig {
+                    mode: NeighborhoodMode::ConsumeOnly (
+                    neighbor_configs,
+                )}
             },
             Some (ref s) if s == "zero-hop" => {
                 if !neighbor_configs.is_empty () {
@@ -994,7 +993,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Remove this once Consume-Only goes live
     fn make_neighborhood_config_consume_only_doesnt_need_ip() {
         let multi_config = MultiConfig::new(
             &app(),
