@@ -445,9 +445,9 @@ impl Bootstrapper {
         {
             let conn = DbInitializerReal::new()
                 .initialize(
-                &self.config.data_directory,
-                self.config.blockchain_bridge_config.chain_id,
-            )
+                    &self.config.data_directory,
+                    self.config.blockchain_bridge_config.chain_id,
+                )
                 .expect("Cannot initialize database");
             let config_dao = ConfigDaoReal::new(conn);
             let persistent_config = PersistentConfigurationReal::new(Box::new(config_dao));
