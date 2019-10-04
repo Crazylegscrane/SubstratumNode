@@ -365,6 +365,12 @@ impl TryFrom<GossipNodeRecord> for AccessibleGossipRecord {
     }
 }
 
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum RouteDirection {
+    Over,
+    Back
+}
+
 impl Neighborhood {
     pub fn new(cryptde: &'static dyn CryptDE, config: &BootstrapperConfig) -> Self {
         let neighborhood_config = &config.neighborhood_config;
@@ -586,7 +592,7 @@ impl Neighborhood {
             msg.target_key_opt.as_ref(),
             msg.minimum_hop_count,
             msg.target_component,
-            false,
+            RouteDirection::Over,
         )?;
         debug!(self.logger, "Route over: {:?}", over);
         let back = self.make_route_segment(
@@ -594,8 +600,7 @@ impl Neighborhood {
             Some(&self.cryptde.public_key()),
             msg.minimum_hop_count,
             msg.return_component_opt.expect("No return component"),
-            false,
-//            true,
+            RouteDirection::Back,
         )?;
         debug!(self.logger, "Route back: {:?}", back);
         self.compose_route_query_response(over, back)
@@ -652,10 +657,9 @@ impl Neighborhood {
         target: Option<&PublicKey>,
         minimum_hop_count: usize,
         target_component: Component,
-        next_door_allowed: bool,
+        direction: RouteDirection,
     ) -> Result<RouteSegment, String> {
-        let mut node_seqs =
-            self.complete_routes(vec![origin], target, minimum_hop_count, next_door_allowed);
+        let mut node_seqs = self.complete_routes(vec![origin], target, minimum_hop_count, direction);
 
         if node_seqs.is_empty() {
             let target_str = match target {
@@ -771,11 +775,19 @@ impl Neighborhood {
         }
     }
 
-    fn validate_last_next_door_exit(
-        previous_node: &NodeRecord,
-        next_door_exit_allowed: bool,
+    fn validate_last_node_not_too_close_to_first_node(
+        &self,
+        prefix_len: usize,
+        first_node_key: &PublicKey,
+        candidate_node_key: &PublicKey,
     ) -> bool {
-        next_door_exit_allowed || previous_node.node_addr_opt().is_none()
+        if prefix_len <= 2 {
+            true // Zero- and single-hop routes are not subject to exit-too-close restrictions
+        } else {
+            !self
+                .neighborhood_database
+                .has_half_neighbor(candidate_node_key, first_node_key)
+        }
     }
 
     fn advance_return_route_id(&mut self) -> u32 {
@@ -795,22 +807,25 @@ impl Neighborhood {
         prefix: Vec<&'a PublicKey>,
         target: Option<&'a PublicKey>,
         hops_remaining: usize,
-        next_door_exit_allowed: bool,
+        direction: RouteDirection,
     ) -> Vec<Vec<&'a PublicKey>> {
+        let first_node_key = prefix.first().expect("Empty prefix");
         let previous_node = self
             .neighborhood_database
             .node_by_key(prefix.last().expect("Empty prefix"))
-            .expect("Node magically disappeared");
+            .expect("Last Node magically disappeared");
         // Check to see if we're done. If we are, all three of these qualifications will pass.
         if self.route_length_qualifies(hops_remaining)
             && self.last_key_qualifies(previous_node, target)
-            && Self::validate_last_next_door_exit(previous_node, next_door_exit_allowed)
+            && self.validate_last_node_not_too_close_to_first_node(
+                prefix.len(),
+                *first_node_key,
+                previous_node.public_key(),
+            )
         {
             vec![prefix]
-        } else if hops_remaining == 0
-            && !Self::validate_last_next_door_exit(previous_node, next_door_exit_allowed)
-        {
-            // don't return routes with next door exit nodes
+        } else if (hops_remaining == 0) && target.is_none() {
+            // don't continue a targetless search past the minimum hop count
             vec![]
         } else {
             // Go through all the neighbors and compute shorter routes through all the ones we're not already using.
@@ -830,12 +845,7 @@ impl Neighborhood {
                         hops_remaining - 1
                     };
 
-                    self.complete_routes(
-                        new_prefix.clone(),
-                        target,
-                        new_hops_remaining,
-                        next_door_exit_allowed,
-                    )
+                    self.complete_routes(new_prefix.clone(), target, new_hops_remaining, direction)
                 })
                 .collect()
         }
@@ -1967,9 +1977,9 @@ mod tests {
 
             Q---p---R
                 |   |
-            T---S---+
+            t---S---+
 
-            Test is written from the standpoint of p. p is consume-only.
+            Test is written from the standpoint of p. p is consume-only, t is originate-only.
     */
 
     #[test]
@@ -1982,7 +1992,7 @@ mod tests {
         let q = &db.add_node(make_node_record(3456, true)).unwrap(); // AwQFBg
         let r = &db.add_node(make_node_record(4567, true)).unwrap(); // BAUGBw
         let s = &db.add_node(make_node_record(5678, true)).unwrap(); // BQYHCA
-        let t = &db.add_node(make_node_record(6789, true)).unwrap(); // BgcICQ
+        let t = &db.add_node(make_node_record_f(6789, true, false, true)).unwrap(); // BgcICQ
         db.add_arbitrary_full_neighbor(q, p);
         db.add_arbitrary_full_neighbor(p, r);
         db.add_arbitrary_full_neighbor(p, s);
@@ -1994,28 +2004,20 @@ mod tests {
         };
 
         // At least two hops from P to anywhere standard
-        let routes = subject.complete_routes(vec![p], None, 2, true);
+        let routes = subject.complete_routes(vec![p], None, 2, RouteDirection::Over);
 
-        contains(&routes, vec![p, s, t]);
-        contains(&routes, vec![p, r, s]);
-        contains(&routes, vec![p, s, r]);
-        assert_eq!(3, routes.len());
+        assert_eq!(routes, vec![vec![p, s, t]]);
+        // no p, r, s or p, s, r because s and r are both neighbors of p
 
         // At least two hops from P to T
-        let routes = subject.complete_routes(vec![p], Some(t), 2, true);
+        let routes = subject.complete_routes(vec![p], Some(t), 2, RouteDirection::Over);
 
         contains(&routes, vec![p, s, t]);
         contains(&routes, vec![p, r, s, t]);
         assert_eq!(2, routes.len());
 
-        // At least two hops from P to S - one choice
-        let routes = subject.complete_routes(vec![p], Some(s), 2, true);
-
-        contains(&routes, vec![p, r, s]);
-        assert_eq!(1, routes.len());
-
         // At least two hops from P to Q - impossible
-        let routes = subject.complete_routes(vec![p], Some(q), 2, true);
+        let routes = subject.complete_routes(vec![p], Some(q), 2, RouteDirection::Over);
 
         assert_eq!(0, routes.len());
     }
@@ -2041,7 +2043,7 @@ mod tests {
         db.add_arbitrary_full_neighbor(q, r);
 
         // At least two hops from P to anywhere standard
-        let routes = subject.complete_routes(vec![p], None, 2, true);
+        let routes = subject.complete_routes(vec![p], None, 2);
 
         let expected: Vec<Vec<&PublicKey>> = vec![];
         assert_eq!(routes, expected);
@@ -3101,21 +3103,35 @@ mod tests {
 
     #[test]
     fn make_round_trip_route_returns_error_when_no_non_next_door_neighbor_found() {
-        let next_door_neighbor = make_node_record(3, true);
+        // Make a triangle of Nodes
+        let one_next_door_neighbor = make_node_record(3, true);
+        let another_next_door_neighbor = make_node_record(4, true);
         let subject_node = make_global_cryptde_node_record(5555, true); // 9e7p7un06eHs6frl5A
-        let mut subject = neighborhood_from_nodes(&subject_node, Some(&next_door_neighbor));
+        let mut subject = neighborhood_from_nodes(&subject_node, Some(&one_next_door_neighbor));
 
         subject
             .neighborhood_database
-            .add_node(next_door_neighbor.clone())
+            .add_node(one_next_door_neighbor.clone())
+            .unwrap();
+        subject
+            .neighborhood_database
+            .add_node(another_next_door_neighbor.clone())
             .unwrap();
 
         subject.neighborhood_database.add_arbitrary_full_neighbor(
             subject_node.public_key(),
-            next_door_neighbor.public_key(),
+            one_next_door_neighbor.public_key(),
+        );
+        subject.neighborhood_database.add_arbitrary_full_neighbor(
+            subject_node.public_key(),
+            another_next_door_neighbor.public_key(),
+        );
+        subject.neighborhood_database.add_arbitrary_full_neighbor(
+            one_next_door_neighbor.public_key(),
+            another_next_door_neighbor.public_key(),
         );
 
-        let minimum_hop_count = 1;
+        let minimum_hop_count = 2;
 
         let result = subject.make_round_trip_route(RouteQueryMessage {
             target_key_opt: None,

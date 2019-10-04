@@ -1,5 +1,6 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 
+use itertools::Itertools;
 use multinode_integration_tests_lib::substratum_node::SubstratumNode;
 use multinode_integration_tests_lib::substratum_node_cluster::SubstratumNodeCluster;
 use multinode_integration_tests_lib::substratum_real_node::{
@@ -18,7 +19,6 @@ use std::net::{SocketAddr, TcpStream};
 use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
-use itertools::Itertools;
 
 #[test]
 fn http_end_to_end_routing_test() {
@@ -79,13 +79,16 @@ fn http_end_to_end_routing_test_with_consume_and_originate_only_nodes() {
             .neighbor(first_node.node_reference())
             .build(),
     );
-    let _potential_exit_nodes = vec![0, 1, 2, 3, 4].into_iter ().map (|_|
-        cluster.start_real_node (
-            NodeStartupConfigBuilder::originate_only()
-                .neighbor(first_node.node_reference())
-                .build()
-        )
-    ).collect_vec();
+    let _potential_exit_nodes = vec![0, 1, 2, 3, 4]
+        .into_iter()
+        .map(|_| {
+            cluster.start_real_node(
+                NodeStartupConfigBuilder::originate_only()
+                    .neighbor(first_node.node_reference())
+                    .build(),
+            )
+        })
+        .collect_vec();
 
     thread::sleep(Duration::from_millis(1000));
 
