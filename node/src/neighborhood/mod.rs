@@ -2001,7 +2001,7 @@ mod tests {
                 |   |
             t---S---+
 
-            Test is written from the standpoint of p. p is consume-only, t is originate-only.
+            p is consume-only, t is originate-only.
     */
 
     #[test]
@@ -2040,16 +2040,24 @@ mod tests {
         contains(&routes, vec![p, r, s, t]);
         assert_eq!(2, routes.len());
 
+        // At least two hops over from t to p
+        let routes = subject.complete_routes(vec![t], Some(p), 2, RouteDirection::Over);
+
+        assert_eq!(routes, Vec::<Vec<&PublicKey>>::new());
+        // p is consume-only; can't be an exit Node.
+
         // At least two hops back from t to p
         let routes = subject.complete_routes(vec![t], Some(p), 2, RouteDirection::Back);
 
-        assert_eq!(0, routes.len());
-        // p is consume-only; can't be an exit Node.
+        contains(&routes, vec![t, s, p]);
+        contains(&routes, vec![t, s, r, p]);
+        assert_eq!(2, routes.len());
+        // p is consume-only, but it's the originating Node, so including it is okay
 
         // At least two hops from p to Q - impossible
         let routes = subject.complete_routes(vec![p], Some(q), 2, RouteDirection::Over);
 
-        assert_eq!(0, routes.len());
+        assert_eq!(routes, Vec::<Vec<&PublicKey>>::new());
     }
 
     /*
