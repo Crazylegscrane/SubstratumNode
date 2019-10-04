@@ -384,6 +384,30 @@ impl NodeStartupConfigBuilder {
         }
     }
 
+    pub fn consume_only() -> Self {
+        Self {
+            neighborhood_mode: "consume-only".to_string(),
+            ip_info: LocalIpInfo::DistributedUnknown,
+            dns_servers: vec![IpAddr::from_str("8.8.8.8").unwrap()],
+            neighbors: vec![],
+            clandestine_port_opt: None,
+            dns_target: localhost(),
+            dns_port: 53,
+            earning_wallet_info: EarningWalletInfo::Address(
+                "0xEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE".to_string(),
+            ),
+            consuming_wallet_info: ConsumingWalletInfo::PrivateKey(
+                "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC".to_string(),
+            ),
+            rate_pack: ZERO_RATE_PACK.clone(),
+            firewall: None,
+            memory: None,
+            fake_public_key: None,
+            blockchain_service_url: None,
+            chain: None,
+        }
+    }
+
     pub fn originate_only() -> Self {
         Self {
             neighborhood_mode: "originate-only".to_string(),

@@ -594,7 +594,8 @@ impl Neighborhood {
             Some(&self.cryptde.public_key()),
             msg.minimum_hop_count,
             msg.return_component_opt.expect("No return component"),
-            true,
+            false,
+//            true,
         )?;
         debug!(self.logger, "Route back: {:?}", back);
         self.compose_route_query_response(over, back)
@@ -809,14 +810,16 @@ impl Neighborhood {
         } else if hops_remaining == 0
             && !Self::validate_last_next_door_exit(previous_node, next_door_exit_allowed)
         {
-            //         don't return routes with next door exit nodes
+            // don't return routes with next door exit nodes
             vec![]
         } else {
             // Go through all the neighbors and compute shorter routes through all the ones we're not already using.
             previous_node
                 .full_neighbors(&self.neighborhood_database)
                 .iter()
-                .filter(|node_record| !prefix.contains(&node_record.public_key()))
+                .filter(|node_record| {
+                    !prefix.contains(&node_record.public_key()) && node_record.routes_data()
+                })
                 .flat_map(|node_record| {
                     let mut new_prefix = prefix.clone();
                     new_prefix.push(node_record.public_key());
@@ -1962,17 +1965,19 @@ mod tests {
     /*
             Database:
 
-            Q---P---R
+            Q---p---R
                 |   |
             T---S---+
 
-            Test is written from the standpoint of P
+            Test is written from the standpoint of p. p is consume-only.
     */
 
     #[test]
     fn complete_routes_exercise() {
         let mut subject = make_standard_subject();
         let db = &mut subject.neighborhood_database;
+        db.root_mut().inner.accepts_connections = false;
+        db.root_mut().inner.routes_data = false;
         let p = &db.root_mut().public_key().clone(); // 9e7p7un06eHs6frl5A
         let q = &db.add_node(make_node_record(3456, true)).unwrap(); // AwQFBg
         let r = &db.add_node(make_node_record(4567, true)).unwrap(); // BAUGBw
@@ -2013,6 +2018,33 @@ mod tests {
         let routes = subject.complete_routes(vec![p], Some(q), 2, true);
 
         assert_eq!(0, routes.len());
+    }
+
+    /*
+            Database:
+
+            P---q---R
+
+            Test is written from the standpoint of P. Node q is non-routing.
+    */
+
+    #[test]
+    fn cant_route_through_non_routing_node() {
+        let mut subject = make_standard_subject();
+        let db = &mut subject.neighborhood_database;
+        let p = &db.root_mut().public_key().clone(); // 9e7p7un06eHs6frl5A
+        let q = &db
+            .add_node(make_node_record_f(4567, true, false, false))
+            .unwrap(); // BAUGBw
+        let r = &db.add_node(make_node_record(5678, true)).unwrap(); // BQYHCA
+        db.add_arbitrary_full_neighbor(p, q);
+        db.add_arbitrary_full_neighbor(q, r);
+
+        // At least two hops from P to anywhere standard
+        let routes = subject.complete_routes(vec![p], None, 2, true);
+
+        let expected: Vec<Vec<&PublicKey>> = vec![];
+        assert_eq!(routes, expected);
     }
 
     #[test]

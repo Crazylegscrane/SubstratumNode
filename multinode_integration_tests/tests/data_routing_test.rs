@@ -18,6 +18,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
+use itertools::Itertools;
 
 #[test]
 fn http_end_to_end_routing_test() {
@@ -65,7 +66,7 @@ fn http_end_to_end_routing_test() {
 }
 
 #[test]
-fn http_end_to_end_routing_test_with_originate_only_nodes() {
+fn http_end_to_end_routing_test_with_consume_and_originate_only_nodes() {
     let mut cluster = SubstratumNodeCluster::start().unwrap();
     let first_node = cluster.start_real_node(NodeStartupConfigBuilder::standard().build());
     let _second_node = cluster.start_real_node(
@@ -74,15 +75,17 @@ fn http_end_to_end_routing_test_with_originate_only_nodes() {
             .build(),
     );
     let originating_node = cluster.start_real_node(
-        NodeStartupConfigBuilder::originate_only()
+        NodeStartupConfigBuilder::consume_only()
             .neighbor(first_node.node_reference())
             .build(),
     );
-    let _exit_node = cluster.start_real_node(
-        NodeStartupConfigBuilder::originate_only()
-            .neighbor(first_node.node_reference())
-            .build(),
-    );
+    let _potential_exit_nodes = vec![0, 1, 2, 3, 4].into_iter ().map (|_|
+        cluster.start_real_node (
+            NodeStartupConfigBuilder::originate_only()
+                .neighbor(first_node.node_reference())
+                .build()
+        )
+    ).collect_vec();
 
     thread::sleep(Duration::from_millis(1000));
 
