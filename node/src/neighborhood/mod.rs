@@ -368,7 +368,7 @@ impl TryFrom<GossipNodeRecord> for AccessibleGossipRecord {
 #[derive(Debug, PartialEq, Clone, Copy)]
 enum RouteDirection {
     Over,
-    Back
+    Back,
 }
 
 impl Neighborhood {
@@ -659,7 +659,8 @@ impl Neighborhood {
         target_component: Component,
         direction: RouteDirection,
     ) -> Result<RouteSegment, String> {
-        let mut node_seqs = self.complete_routes(vec![origin], target, minimum_hop_count, direction);
+        let mut node_seqs =
+            self.complete_routes(vec![origin], target, minimum_hop_count, direction);
 
         if node_seqs.is_empty() {
             let target_str = match target {
@@ -790,6 +791,20 @@ impl Neighborhood {
         }
     }
 
+    fn is_orig_node_on_back_leg(
+        node: &NodeRecord,
+        target_key_opt: Option<&PublicKey>,
+        direction: RouteDirection,
+    ) -> bool {
+        match direction {
+            RouteDirection::Over => false,
+            RouteDirection::Back => match target_key_opt {
+                None => false,
+                Some(target_key) => node.public_key() == target_key,
+            },
+        }
+    }
+
     fn advance_return_route_id(&mut self) -> u32 {
         let return_route_id = self.next_return_route_id;
         self.next_return_route_id = return_route_id.wrapping_add(1);
@@ -805,7 +820,7 @@ impl Neighborhood {
     fn complete_routes<'a>(
         &'a self,
         prefix: Vec<&'a PublicKey>,
-        target: Option<&'a PublicKey>,
+        target_opt: Option<&'a PublicKey>,
         hops_remaining: usize,
         direction: RouteDirection,
     ) -> Vec<Vec<&'a PublicKey>> {
@@ -816,7 +831,7 @@ impl Neighborhood {
             .expect("Last Node magically disappeared");
         // Check to see if we're done. If we are, all three of these qualifications will pass.
         if self.route_length_qualifies(hops_remaining)
-            && self.last_key_qualifies(previous_node, target)
+            && self.last_key_qualifies(previous_node, target_opt)
             && self.validate_last_node_not_too_close_to_first_node(
                 prefix.len(),
                 *first_node_key,
@@ -824,7 +839,7 @@ impl Neighborhood {
             )
         {
             vec![prefix]
-        } else if (hops_remaining == 0) && target.is_none() {
+        } else if (hops_remaining == 0) && target_opt.is_none() {
             // don't continue a targetless search past the minimum hop count
             vec![]
         } else {
@@ -832,8 +847,10 @@ impl Neighborhood {
             previous_node
                 .full_neighbors(&self.neighborhood_database)
                 .iter()
+                .filter(|node_record| !prefix.contains(&node_record.public_key()))
                 .filter(|node_record| {
-                    !prefix.contains(&node_record.public_key()) && node_record.routes_data()
+                    node_record.routes_data()
+                        || Self::is_orig_node_on_back_leg(**node_record, target_opt, direction)
                 })
                 .flat_map(|node_record| {
                     let mut new_prefix = prefix.clone();
@@ -845,7 +862,12 @@ impl Neighborhood {
                         hops_remaining - 1
                     };
 
-                    self.complete_routes(new_prefix.clone(), target, new_hops_remaining, direction)
+                    self.complete_routes(
+                        new_prefix.clone(),
+                        target_opt,
+                        new_hops_remaining,
+                        direction,
+                    )
                 })
                 .collect()
         }
@@ -1992,7 +2014,9 @@ mod tests {
         let q = &db.add_node(make_node_record(3456, true)).unwrap(); // AwQFBg
         let r = &db.add_node(make_node_record(4567, true)).unwrap(); // BAUGBw
         let s = &db.add_node(make_node_record(5678, true)).unwrap(); // BQYHCA
-        let t = &db.add_node(make_node_record_f(6789, true, false, true)).unwrap(); // BgcICQ
+        let t = &db
+            .add_node(make_node_record_f(6789, true, false, true))
+            .unwrap(); // BgcICQ
         db.add_arbitrary_full_neighbor(q, p);
         db.add_arbitrary_full_neighbor(p, r);
         db.add_arbitrary_full_neighbor(p, s);
@@ -2003,20 +2027,26 @@ mod tests {
             assert_contains(&routes, &expected_keys);
         };
 
-        // At least two hops from P to anywhere standard
+        // At least two hops from p to anywhere standard
         let routes = subject.complete_routes(vec![p], None, 2, RouteDirection::Over);
 
         assert_eq!(routes, vec![vec![p, s, t]]);
-        // no p, r, s or p, s, r because s and r are both neighbors of p
+        // no [p, r, s] or [p, s, r] because s and r are both neighbors of p and can't exit for it
 
-        // At least two hops from P to T
+        // At least two hops over from p to t
         let routes = subject.complete_routes(vec![p], Some(t), 2, RouteDirection::Over);
 
         contains(&routes, vec![p, s, t]);
         contains(&routes, vec![p, r, s, t]);
         assert_eq!(2, routes.len());
 
-        // At least two hops from P to Q - impossible
+        // At least two hops back from t to p
+        let routes = subject.complete_routes(vec![t], Some(p), 2, RouteDirection::Back);
+
+        assert_eq!(0, routes.len());
+        // p is consume-only; can't be an exit Node.
+
+        // At least two hops from p to Q - impossible
         let routes = subject.complete_routes(vec![p], Some(q), 2, RouteDirection::Over);
 
         assert_eq!(0, routes.len());
@@ -2043,7 +2073,7 @@ mod tests {
         db.add_arbitrary_full_neighbor(q, r);
 
         // At least two hops from P to anywhere standard
-        let routes = subject.complete_routes(vec![p], None, 2);
+        let routes = subject.complete_routes(vec![p], None, 2, RouteDirection::Over);
 
         let expected: Vec<Vec<&PublicKey>> = vec![];
         assert_eq!(routes, expected);
