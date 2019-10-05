@@ -40,7 +40,6 @@ use log::LevelFilter;
 use std::collections::HashMap;
 use std::env::var;
 use std::fmt::{Debug, Error, Formatter};
-use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -366,12 +365,7 @@ impl SocketServer<BootstrapperConfig> for Bootstrapper {
         );
         self.config.ui_gateway_config.node_descriptor = Bootstrapper::report_local_descriptor(
             cryptde_ref,
-            self.config.neighborhood_config.mode.local_ip_addr_opt(),
-            self.config
-                .neighborhood_config
-                .mode
-                .clandestine_port_list()
-                .clone(),
+            self.config.neighborhood_config.mode.node_addr_opt(),
             streams,
             self.config.blockchain_bridge_config.chain_id,
         );
@@ -417,14 +411,12 @@ impl Bootstrapper {
 
     fn report_local_descriptor(
         cryptde: &dyn CryptDE,
-        ip_addr_opt: Option<IpAddr>,
-        ports: Vec<u16>,
+        node_addr_opt: Option<NodeAddr>,
         streams: &mut StdStreams<'_>,
         chain_id: u8,
     ) -> String {
-        let descriptor = match ip_addr_opt {
-            Some(ip_addr) => {
-                let node_addr = NodeAddr::new(&ip_addr, &ports);
+        let descriptor = match node_addr_opt {
+            Some(node_addr) => {
                 let node_descriptor = NodeDescriptor::from((cryptde.public_key(), &node_addr));
                 node_descriptor.to_string(cryptde, chain_id)
             }
@@ -520,7 +512,7 @@ mod tests {
     use std::io;
     use std::io::ErrorKind;
     use std::marker::Sync;
-    use std::net::SocketAddr;
+    use std::net::{IpAddr, SocketAddr};
     use std::ops::DerefMut;
     use std::str::FromStr;
     use std::sync::mpsc;
@@ -785,11 +777,7 @@ mod tests {
 
         let config = subject.config;
         assert_eq!(
-            config
-                .neighborhood_config
-                .mode
-                .clandestine_port_list()
-                .is_empty(),
+            config.neighborhood_config.mode.node_addr_opt().is_none(),
             true
         );
         assert_eq!(config.clandestine_discriminator_factories.is_empty(), true);
@@ -927,11 +915,7 @@ mod tests {
         subject.initialize_as_unprivileged(&args, &mut holder.streams());
 
         let config = subject.config;
-        assert!(config
-            .neighborhood_config
-            .mode
-            .clandestine_port_list()
-            .is_empty());
+        assert!(config.neighborhood_config.mode.node_addr_opt().is_none());
         assert_eq!(config.clandestine_port_opt, Some(1234u16));
     }
 
@@ -1036,8 +1020,10 @@ mod tests {
     fn initialize_cryptde_and_report_local_descriptor_with_ip_address() {
         let _lock = INITIALIZATION.lock();
         init_test_logging();
-        let ip_addr = IpAddr::from_str("2.3.4.5").expect("Couldn't create IP address");
-        let ports = vec![3456u16, 4567u16];
+        let node_addr = NodeAddr::new(
+            &IpAddr::from_str("2.3.4.5").expect("Couldn't create IP address"),
+            &vec![3456u16, 4567u16],
+        );
         let mut holder = FakeStreamHolder::new();
         let cryptde_ref = {
             let mut streams = holder.streams();
@@ -1045,8 +1031,7 @@ mod tests {
             let cryptde_ref = Bootstrapper::initialize_cryptde(&None, DEFAULT_CHAIN_ID);
             Bootstrapper::report_local_descriptor(
                 cryptde_ref,
-                Some(ip_addr),
-                ports,
+                Some(node_addr),
                 &mut streams,
                 DEFAULT_CHAIN_ID,
             );
@@ -1095,7 +1080,6 @@ mod tests {
     fn initialize_cryptde_and_report_local_descriptor_without_ip_address() {
         let _lock = INITIALIZATION.lock();
         init_test_logging();
-        let ports = vec![3456u16, 4567u16];
         let mut holder = FakeStreamHolder::new();
         let cryptde_ref = {
             let mut streams = holder.streams();
@@ -1104,7 +1088,6 @@ mod tests {
             Bootstrapper::report_local_descriptor(
                 cryptde_ref,
                 None,
-                ports,
                 &mut streams,
                 DEFAULT_CHAIN_ID,
             );
@@ -1371,12 +1354,14 @@ mod tests {
         let persistent_config = PersistentConfigurationReal::new(Box::new(config_dao));
         assert_eq!(1234u16, persistent_config.clandestine_port());
         assert_eq!(
-            vec![1234u16],
             subject
                 .config
                 .neighborhood_config
                 .mode
-                .clandestine_port_list()
+                .node_addr_opt()
+                .unwrap()
+                .ports(),
+            vec![1234u16],
         );
         assert_eq!(1, subject.listener_handlers.len());
 
@@ -1436,12 +1421,14 @@ mod tests {
         let persistent_config = PersistentConfigurationReal::new(Box::new(config_dao));
         let clandestine_port = persistent_config.clandestine_port();
         assert_eq!(
-            vec![clandestine_port],
             subject
                 .config
                 .neighborhood_config
                 .mode
-                .clandestine_port_list()
+                .node_addr_opt()
+                .unwrap()
+                .ports(),
+            vec![clandestine_port],
         );
     }
 
@@ -1477,8 +1464,8 @@ mod tests {
             .config
             .neighborhood_config
             .mode
-            .clandestine_port_list()
-            .is_empty());
+            .node_addr_opt()
+            .is_none());
     }
 
     #[test]
@@ -1510,8 +1497,8 @@ mod tests {
             .config
             .neighborhood_config
             .mode
-            .clandestine_port_list()
-            .is_empty());
+            .node_addr_opt()
+            .is_none());
     }
 
     #[test]
@@ -1538,8 +1525,8 @@ mod tests {
             .config
             .neighborhood_config
             .mode
-            .clandestine_port_list()
-            .is_empty());
+            .node_addr_opt()
+            .is_none());
     }
 
     #[test]

@@ -247,30 +247,5 @@ fn from_substratum_node_to_node_record(substratum_node: &dyn SubstratumNode) -> 
         signed_gossip: agr.signed_gossip.clone(),
         signature: agr.signature.clone(),
     };
-    //    let mut result = NodeRecord {
-    //        inner: NodeRecordInner {
-    //            data_version: NodeRecordInner::data_version(),
-    //            public_key: substratum_node.public_key().clone(),
-    //            earning_wallet: substratum_node.earning_wallet(),
-    //            rate_pack: substratum_node.rate_pack(),
-    //            neighbors: BTreeSet::new(),
-    //            originate_only: false,
-    //            version: 0,
-    //        },
-    //        metadata: NodeRecordMetadata {
-    //            desirable: true,
-    //            node_addr_opt: Some(substratum_node.node_addr()),
-    //        },
-    //        signed_gossip: PlainData::new(b""),
-    //        signature: CryptData::new(b""),
-    //    };
-    //    let cryptde = CryptDENull::from(
-    //        substratum_node.public_key(),
-    //        substratum_node
-    //            .chain()
-    //            .map(|chain_name| chain_id_from_name(chain_name.as_str()))
-    //            .unwrap_or(DEFAULT_CHAIN_ID),
-    //    );
-    //    result.regenerate_signed_gossip(&cryptde);
     result
 }

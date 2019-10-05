@@ -1120,12 +1120,11 @@ mod tests {
     use std::str::FromStr;
 
     #[derive(Clone, Copy, Debug, PartialEq)]
-    #[allow(dead_code)] // TODO: Temporary
     enum Mode {
         Standard,
         OriginateOnly,
-        ConsumeOnly,
-        // ZeroHop should never appear in GossipAcceptor tests
+        // GossipAcceptor doesn't care about ConsumeOnly; that's routing, not Gossip
+        // ZeroHop is decentralized and should never appear in GossipAcceptor tests
     }
 
     #[test]
@@ -3162,11 +3161,6 @@ mod tests {
                 node.metadata.node_addr_opt = None;
                 node.inner.accepts_connections = false;
                 node.inner.routes_data = true;
-            }
-            Mode::ConsumeOnly => {
-                node.metadata.node_addr_opt = None;
-                node.inner.accepts_connections = false;
-                node.inner.routes_data = false;
             }
         }
     }

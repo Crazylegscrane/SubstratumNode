@@ -56,22 +56,13 @@ impl NeighborhoodMode {
         }
     }
 
-    // TODO: Maybe combine this and the next function into node_addr_opt()
-    pub fn local_ip_addr_opt(&self) -> Option<IpAddr> {
+    pub fn node_addr_opt(&self) -> Option<NodeAddr> {
         match self {
-            NeighborhoodMode::Standard(node_addr, _, _) => Some(node_addr.ip_addr()),
+            NeighborhoodMode::Standard(node_addr, _, _) => Some(node_addr.clone()),
             _ => None,
         }
     }
 
-    pub fn clandestine_port_list(&self) -> Vec<u16> {
-        match self {
-            NeighborhoodMode::Standard(node_addr, _, _) => node_addr.ports().clone(),
-            _ => vec![],
-        }
-    }
-
-    // TODO We may want to change this to return an Option. Or maybe not.
     pub fn rate_pack(&self) -> &RatePack {
         match self {
             NeighborhoodMode::Standard(_, _, rate_pack) => rate_pack,
@@ -524,8 +515,10 @@ mod tests {
             rate_pack(100),
         );
 
-        assert_eq!(subject.local_ip_addr_opt(), Some(localhost()));
-        assert_eq!(subject.clandestine_port_list(), vec![1234u16, 2345u16]);
+        assert_eq!(
+            subject.node_addr_opt(),
+            Some(NodeAddr::new(&localhost(), &vec![1234, 2345]))
+        );
         assert_eq!(
             subject.neighbor_configs(),
             &vec!["one neighbor".to_string(), "another neighbor".to_string()]
@@ -546,8 +539,7 @@ mod tests {
             rate_pack(100),
         );
 
-        assert_eq!(subject.local_ip_addr_opt(), None);
-        assert!(subject.clandestine_port_list().is_empty());
+        assert_eq!(subject.node_addr_opt(), None);
         assert_eq!(
             subject.neighbor_configs(),
             &vec!["one neighbor".to_string(), "another neighbor".to_string()]
@@ -568,8 +560,7 @@ mod tests {
             "another neighbor".to_string(),
         ]);
 
-        assert_eq!(subject.local_ip_addr_opt(), None);
-        assert!(subject.clandestine_port_list().is_empty());
+        assert_eq!(subject.node_addr_opt(), None);
         assert_eq!(
             subject.neighbor_configs(),
             &vec!["one neighbor".to_string(), "another neighbor".to_string()]
@@ -587,8 +578,7 @@ mod tests {
     fn zero_hop_mode_results() {
         let subject = NeighborhoodMode::ZeroHop;
 
-        assert_eq!(subject.local_ip_addr_opt(), None);
-        assert!(subject.clandestine_port_list().is_empty());
+        assert_eq!(subject.node_addr_opt(), None);
         assert!(subject.neighbor_configs().is_empty());
         assert_eq!(subject.rate_pack(), &ZERO_RATE_PACK);
         assert!(!subject.accepts_connections());

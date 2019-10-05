@@ -52,12 +52,9 @@ impl NeighborhoodDatabase {
             0,
             cryptde,
         );
-        if let Some(ip_addr) = neighborhood_mode.local_ip_addr_opt() {
+        if let Some(node_addr) = neighborhood_mode.node_addr_opt() {
             node_record
-                .set_node_addr(&NodeAddr::new(
-                    &ip_addr,
-                    &neighborhood_mode.clandestine_port_list(),
-                ))
+                .set_node_addr(&node_addr)
                 .expect("NodeAddr suddenly appeared out of nowhere");
         }
         node_record.regenerate_signed_gossip(cryptde);

@@ -134,7 +134,7 @@ impl NodeStartupConfig {
             dns_servers: Vec::new(),
             neighbors: Vec::new(),
             clandestine_port_opt: None,
-            dns_target: IpAddr::V4(Ipv4Addr::new(255, 255, 255, 255)),
+            dns_target: IpAddr::V4(Ipv4Addr::BROADCAST),
             dns_port: 0,
             earning_wallet_info: EarningWalletInfo::None,
             consuming_wallet_info: ConsumingWalletInfo::None,

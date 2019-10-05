@@ -1259,13 +1259,23 @@ mod tests {
             ),
         );
         assert_eq!(
-            config.neighborhood_config.mode.local_ip_addr_opt(),
-            Some(IpAddr::V4(Ipv4Addr::new(34, 56, 78, 90))),
+            config
+                .neighborhood_config
+                .mode
+                .node_addr_opt()
+                .unwrap()
+                .ip_addr(),
+            IpAddr::V4(Ipv4Addr::new(34, 56, 78, 90)),
         );
         assert_eq!(config.ui_gateway_config.ui_port, 5335);
         let expected_port_list: Vec<u16> = vec![];
         assert_eq!(
-            config.neighborhood_config.mode.clandestine_port_list(),
+            config
+                .neighborhood_config
+                .mode
+                .node_addr_opt()
+                .unwrap()
+                .ports(),
             expected_port_list,
         );
         assert_eq!(
@@ -1383,8 +1393,13 @@ mod tests {
         );
         assert_eq!(config.crash_point, CrashPoint::None);
         assert_eq!(
-            config.neighborhood_config.mode.local_ip_addr_opt(),
-            Some(IpAddr::from_str("1.2.3.4").unwrap())
+            config
+                .neighborhood_config
+                .mode
+                .node_addr_opt()
+                .unwrap()
+                .ip_addr(),
+            IpAddr::from_str("1.2.3.4").unwrap()
         );
         assert_eq!(config.ui_gateway_config.ui_port, 5333);
         assert!(config.cryptde_null_opt.is_none());
