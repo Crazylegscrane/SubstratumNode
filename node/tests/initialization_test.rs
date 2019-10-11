@@ -4,7 +4,7 @@ pub mod utils;
 
 use node_lib::database::db_initializer::DATABASE_FILE;
 use utils::CommandConfig;
-use utils::MASQNode;
+use utils::SubstratumNode;
 
 #[test]
 fn clap_help_does_not_initialize_database_integration() {
@@ -14,7 +14,7 @@ fn clap_help_does_not_initialize_database_integration() {
         Err(ref e) => panic!("{:?}", e),
     }
 
-    let mut node = MASQNode::start_standard(Some(
+    let mut node = SubstratumNode::start_standard(Some(
         CommandConfig::new().opt("--help"), // We don't specify --data-directory because the --help logic doesn't evaluate it
     ));
 

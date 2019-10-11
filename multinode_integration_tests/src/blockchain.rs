@@ -1,7 +1,7 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 
 use crate::command::Command;
-use crate::masq_node::MASQNodeUtils;
+use crate::substratum_node::SubstratumNodeUtils;
 use node_lib::test_utils;
 use std::net::{IpAddr, Ipv4Addr};
 
@@ -11,7 +11,7 @@ pub struct BlockchainServer<'a> {
 
 impl<'a> BlockchainServer<'a> {
     pub fn start(&self) {
-        MASQNodeUtils::clean_up_existing_container(self.name);
+        SubstratumNodeUtils::clean_up_existing_container(self.name);
         let ip_addr = IpAddr::V4(Ipv4Addr::new(172, 18, 1, 250));
         let ip_addr_string = ip_addr.to_string();
         let args = vec![
@@ -57,6 +57,6 @@ impl<'a> BlockchainServer<'a> {
 
 impl<'a> Drop for BlockchainServer<'a> {
     fn drop(&mut self) {
-        MASQNodeUtils::stop(self.name);
+        SubstratumNodeUtils::stop(self.name);
     }
 }

@@ -1,22 +1,22 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 
-use crate::masq_node_cluster::MASQNodeCluster;
+use crate::substratum_node_cluster::SubstratumNodeCluster;
 use crate::utils;
 use std::io;
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::time::Duration;
 
-pub struct MASQNodeServer {
+pub struct SubstratumNodeServer {
     socket_addr: SocketAddr,
     listener: TcpListener,
     stream_opt: Option<TcpStream>,
 }
 
-impl MASQNodeServer {
-    pub fn new(port: u16) -> MASQNodeServer {
-        let socket_addr = SocketAddr::new(MASQNodeCluster::host_ip_addr(), port);
+impl SubstratumNodeServer {
+    pub fn new(port: u16) -> SubstratumNodeServer {
+        let socket_addr = SocketAddr::new(SubstratumNodeCluster::host_ip_addr(), port);
         let listener = TcpListener::bind(socket_addr).unwrap();
-        MASQNodeServer {
+        SubstratumNodeServer {
             socket_addr,
             listener,
             stream_opt: None,

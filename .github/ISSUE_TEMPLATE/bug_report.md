@@ -1,13 +1,11 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: ''
-labels: ''
 
 ---
 
-**MASQ Node Version**
-Need the full version of MASQ Node (e.g. MASQNode 0.4.2)
+**SubstratumNode Version**
+Need the full version of SubstratumNode (e.g. SubstratumNode 0.4.2)
 
 **Describe the bug**
 A clear and concise description of what the bug is.
@@ -26,7 +24,7 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Log files**
-Include any relevant logging information.
+Include any relavent logging information. (e.g. /tmp/SubstratumNode.log on Ubuntu)
 
 **Device Details (please complete the following information):**
  - Device Type [e.g. laptop, desktop, mobile phone, router, IoT]

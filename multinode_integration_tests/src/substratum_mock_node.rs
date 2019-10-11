@@ -1,11 +1,11 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 use crate::command::Command;
 use crate::main::CONTROL_STREAM_PORT;
-use crate::masq_node::MASQNode;
-use crate::masq_node::MASQNodeUtils;
-use crate::masq_node::NodeReference;
-use crate::masq_node::PortSelector;
 use crate::multinode_gossip::{Introduction, MultinodeGossip, SingleNode};
+use crate::substratum_node::NodeReference;
+use crate::substratum_node::PortSelector;
+use crate::substratum_node::SubstratumNode;
+use crate::substratum_node::SubstratumNodeUtils;
 use node_lib::hopper::live_cores_package::LiveCoresPackage;
 use node_lib::json_masquerader::JsonMasquerader;
 use node_lib::masquerader::{MasqueradeError, Masquerader};
@@ -38,9 +38,9 @@ use std::rc::Rc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub struct MASQMockNode {
+pub struct SubstratumMockNode {
     control_stream: RefCell<TcpStream>,
-    guts: Rc<MASQMockNodeGuts>,
+    guts: Rc<SubstratumMockNodeGuts>,
 }
 
 enum CryptDEEnum {
@@ -48,16 +48,16 @@ enum CryptDEEnum {
     Fake(CryptDENull),
 }
 
-impl Clone for MASQMockNode {
+impl Clone for SubstratumMockNode {
     fn clone(&self) -> Self {
-        MASQMockNode {
+        SubstratumMockNode {
             control_stream: RefCell::new(self.control_stream.borrow().try_clone().unwrap()),
             guts: Rc::clone(&self.guts),
         }
     }
 }
 
-impl MASQNode for MASQMockNode {
+impl SubstratumNode for SubstratumMockNode {
     fn name(&self) -> &str {
         self.guts.name.as_str()
     }
@@ -101,7 +101,7 @@ impl MASQNode for MASQMockNode {
     }
 
     fn socket_addr(&self, port_selector: PortSelector) -> SocketAddr {
-        MASQNodeUtils::socket_addr(&self.node_addr(), port_selector, self.name())
+        SubstratumNodeUtils::socket_addr(&self.node_addr(), port_selector, self.name())
     }
 
     fn earning_wallet(&self) -> Wallet {
@@ -129,14 +129,14 @@ impl MASQNode for MASQMockNode {
     }
 }
 
-impl MASQMockNode {
+impl SubstratumMockNode {
     pub fn start_with_public_key(
         ports: Vec<u16>,
         index: usize,
         host_node_parent_dir: Option<String>,
         public_key: &PublicKey,
         chain_id: u8,
-    ) -> MASQMockNode {
+    ) -> SubstratumMockNode {
         let cryptde_enum = CryptDEEnum::Fake(CryptDENull::from(public_key, chain_id));
         Self::start_with_cryptde_enum(ports, index, host_node_parent_dir, cryptde_enum)
     }
@@ -146,7 +146,7 @@ impl MASQMockNode {
         index: usize,
         host_node_parent_dir: Option<String>,
         chain_id: u8,
-    ) -> MASQMockNode {
+    ) -> SubstratumMockNode {
         let cryptde_enum = CryptDEEnum::Real(CryptDEReal::new(chain_id));
         Self::start_with_cryptde_enum(ports, index, host_node_parent_dir, cryptde_enum)
     }
@@ -156,17 +156,17 @@ impl MASQMockNode {
         index: usize,
         host_node_parent_dir: Option<String>,
         cryptde_enum: CryptDEEnum,
-    ) -> MASQMockNode {
+    ) -> SubstratumMockNode {
         let name = format!("mock_node_{}", index);
         let node_addr = NodeAddr::new(&IpAddr::V4(Ipv4Addr::new(172, 18, 1, index as u8)), &ports);
         let earning_wallet = make_wallet(format!("{}_earning", name).as_str());
         let consuming_wallet = Some(make_paying_wallet(format!("{}_consuming", name).as_bytes()));
-        MASQNodeUtils::clean_up_existing_container(&name[..]);
+        SubstratumNodeUtils::clean_up_existing_container(&name[..]);
         Self::do_docker_run(&node_addr, host_node_parent_dir, &name);
         let wait_addr = SocketAddr::new(node_addr.ip_addr(), CONTROL_STREAM_PORT);
         let control_stream = RefCell::new(Self::wait_for_startup(wait_addr, &name));
         let framer = RefCell::new(DataHunkFramer::new());
-        let guts = Rc::new(MASQMockNodeGuts {
+        let guts = Rc::new(SubstratumMockNodeGuts {
             name,
             node_addr,
             earning_wallet,
@@ -175,7 +175,7 @@ impl MASQMockNode {
             framer,
             chain: None,
         });
-        MASQMockNode {
+        SubstratumMockNode {
             control_stream,
             guts,
         }
@@ -241,29 +241,29 @@ impl MASQMockNode {
         )
     }
 
-    pub fn transmit_debut(&self, receiver: &dyn MASQNode) -> Result<(), io::Error> {
+    pub fn transmit_debut(&self, receiver: &dyn SubstratumNode) -> Result<(), io::Error> {
         self.transmit_multinode_gossip(receiver, &SingleNode::new(self))
     }
 
     pub fn transmit_pass(
         &self,
-        receiver: &dyn MASQNode,
-        target: &dyn MASQNode,
+        receiver: &dyn SubstratumNode,
+        target: &dyn SubstratumNode,
     ) -> Result<(), io::Error> {
         self.transmit_multinode_gossip(receiver, &SingleNode::new(target))
     }
 
     pub fn transmit_introduction(
         &self,
-        receiver: &dyn MASQNode,
-        introducee: &dyn MASQNode,
+        receiver: &dyn SubstratumNode,
+        introducee: &dyn SubstratumNode,
     ) -> Result<(), io::Error> {
         self.transmit_multinode_gossip(receiver, &Introduction::new(self, introducee))
     }
 
     pub fn transmit_multinode_gossip(
         &self,
-        receiver: &dyn MASQNode,
+        receiver: &dyn SubstratumNode,
         multinode_gossip: &dyn MultinodeGossip,
     ) -> Result<(), io::Error> {
         let gossip = multinode_gossip.render();
@@ -371,7 +371,7 @@ impl MASQMockNode {
     fn do_docker_run(node_addr: &NodeAddr, host_node_parent_dir: Option<String>, name: &String) {
         let root = match host_node_parent_dir {
             Some(dir) => dir,
-            None => MASQNodeUtils::find_project_root(),
+            None => SubstratumNodeUtils::find_project_root(),
         };
         let command_dir = format!("{}/node/target/release", root);
         let mock_node_args = Self::make_node_args(&node_addr);
@@ -430,7 +430,7 @@ impl MASQMockNode {
     }
 }
 
-struct MASQMockNodeGuts {
+struct SubstratumMockNodeGuts {
     name: String,
     node_addr: NodeAddr,
     earning_wallet: Wallet,
@@ -440,8 +440,8 @@ struct MASQMockNodeGuts {
     chain: Option<String>,
 }
 
-impl Drop for MASQMockNodeGuts {
+impl Drop for SubstratumMockNodeGuts {
     fn drop(&mut self) {
-        MASQNodeUtils::stop(self.name.as_str());
+        SubstratumNodeUtils::stop(self.name.as_str());
     }
 }

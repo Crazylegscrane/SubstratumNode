@@ -1,5 +1,5 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
-use crate::masq_node_client::MASQNodeClient;
+use crate::substratum_node_client::SubstratumNodeClient;
 use node_lib::hopper::live_cores_package::LiveCoresPackage;
 use node_lib::json_masquerader::JsonMasquerader;
 use node_lib::masquerader::Masquerader;
@@ -10,16 +10,16 @@ use node_lib::sub_lib::hopper::IncipientCoresPackage;
 use serde_cbor;
 use std::net::SocketAddr;
 
-pub struct MASQCoresClient<'a> {
+pub struct SubstratumCoresClient<'a> {
     cryptde: &'a dyn CryptDE,
-    delegate: MASQNodeClient,
+    delegate: SubstratumNodeClient,
 }
 
-impl<'a> MASQCoresClient<'a> {
-    pub fn new(socket_addr: SocketAddr, cryptde: &'a dyn CryptDE) -> MASQCoresClient<'a> {
-        MASQCoresClient {
+impl<'a> SubstratumCoresClient<'a> {
+    pub fn new(socket_addr: SocketAddr, cryptde: &'a dyn CryptDE) -> SubstratumCoresClient<'a> {
+        SubstratumCoresClient {
             cryptde,
-            delegate: MASQNodeClient::new(socket_addr),
+            delegate: SubstratumNodeClient::new(socket_addr),
         }
     }
 

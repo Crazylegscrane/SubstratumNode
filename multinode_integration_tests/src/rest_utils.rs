@@ -1,7 +1,7 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 
 use crate::command::Command;
-use crate::masq_node::MASQNodeUtils;
+use crate::substratum_node::SubstratumNodeUtils;
 
 pub struct RestServer<'a> {
     pub name: &'a str,
@@ -9,7 +9,7 @@ pub struct RestServer<'a> {
 
 impl<'a> RestServer<'a> {
     pub fn start(&self) {
-        MASQNodeUtils::clean_up_existing_container(self.name);
+        SubstratumNodeUtils::clean_up_existing_container(self.name);
         let args = vec![
             "run",
             "--detach",
@@ -37,6 +37,6 @@ impl<'a> RestServer<'a> {
 
 impl<'a> Drop for RestServer<'a> {
     fn drop(&mut self) {
-        MASQNodeUtils::stop(self.name);
+        SubstratumNodeUtils::stop(self.name);
     }
 }

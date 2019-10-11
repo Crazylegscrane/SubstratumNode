@@ -1,11 +1,11 @@
 // Copyright (c) 2017-2019, Substratum LLC (https://substratum.net) and/or its affiliates. All rights reserved.
 use crate::command::Command;
-use crate::masq_node::MASQNode;
-use crate::masq_node::MASQNodeUtils;
-use crate::masq_node::NodeReference;
-use crate::masq_node::PortSelector;
-use crate::masq_node_client::MASQNodeClient;
-use crate::masq_node_server::MASQNodeServer;
+use crate::substratum_node::NodeReference;
+use crate::substratum_node::PortSelector;
+use crate::substratum_node::SubstratumNode;
+use crate::substratum_node::SubstratumNodeUtils;
+use crate::substratum_node_client::SubstratumNodeClient;
+use crate::substratum_node_server::SubstratumNodeServer;
 use bip39::{Language, Mnemonic, Seed};
 use node_lib::blockchain::bip32::Bip32ECKeyPair;
 use node_lib::blockchain::blockchain_interface::chain_id_from_name;
@@ -593,11 +593,11 @@ impl NodeStartupConfigBuilder {
 }
 
 #[derive(Clone, Debug)]
-pub struct MASQRealNode {
-    guts: Rc<MASQRealNodeGuts>,
+pub struct SubstratumRealNode {
+    guts: Rc<SubstratumRealNodeGuts>,
 }
 
-impl MASQNode for MASQRealNode {
+impl SubstratumNode for SubstratumRealNode {
     fn name(&self) -> &str {
         &self.guts.name
     }
@@ -637,7 +637,7 @@ impl MASQNode for MASQRealNode {
     }
 
     fn socket_addr(&self, port_selector: PortSelector) -> SocketAddr {
-        MASQNodeUtils::socket_addr(&self.node_addr(), port_selector, self.name())
+        SubstratumNodeUtils::socket_addr(&self.node_addr(), port_selector, self.name())
     }
 
     fn earning_wallet(&self) -> Wallet {
@@ -665,7 +665,7 @@ impl MASQNode for MASQRealNode {
     }
 }
 
-impl MASQRealNode {
+impl SubstratumRealNode {
     pub fn prepare(name: &String) {
         Self::do_prepare_for_docker_run(name).unwrap();
     }
@@ -713,20 +713,20 @@ impl MASQRealNode {
     ) -> Self {
         let ip_addr = IpAddr::V4(Ipv4Addr::new(172, 18, 1, index as u8));
         let rate_pack = startup_config.rate_pack.clone();
-        MASQNodeUtils::clean_up_existing_container(&name[..]);
+        SubstratumNodeUtils::clean_up_existing_container(&name[..]);
         let real_startup_config = match startup_config.ip_info {
             LocalIpInfo::ZeroHop => startup_config.clone(),
             LocalIpInfo::DistributedUnknown => NodeStartupConfigBuilder::copy(&startup_config)
                 .ip(ip_addr)
                 .build(),
             LocalIpInfo::DistributedKnown(ip_addr) => panic!(
-                "Can't pre-specify the IP address of a MASQRealNode: {}",
+                "Can't pre-specify the IP address of a SubstratumRealNode: {}",
                 ip_addr
             ),
         };
         let root_dir = match host_node_parent_dir {
             Some(dir) => dir,
-            None => MASQNodeUtils::find_project_root(),
+            None => SubstratumNodeUtils::find_project_root(),
         };
 
         docker_run_fn(&root_dir, ip_addr, &name).expect("docker run");
@@ -762,11 +762,11 @@ impl MASQRealNode {
         let mut bash_command_parts = vec!["/bin/bash", "-c"];
         bash_command_parts.extend(vec![node_command.as_str()]);
         Self::exec_command_on_container_and_detach(&name, bash_command_parts)
-            .expect("Couldn't start MASQNode");
+            .expect("Couldn't start SubstratumNode");
 
         let node_reference =
             Self::extract_node_reference(&name).expect("extracting node reference");
-        let guts = Rc::new(MASQRealNodeGuts {
+        let guts = Rc::new(SubstratumRealNodeGuts {
             name,
             container_ip: ip_addr,
             node_reference,
@@ -789,7 +789,7 @@ impl MASQRealNode {
             None => return,
             Some(args) => args.join(" "),
         };
-        let node_command = format!("/node_root/node/MASQNode {}", args);
+        let node_command = format!("/node_root/node/SubstratumNode {}", args);
         let mut bash_command_parts = vec!["/bin/bash", "-c"];
         bash_command_parts.extend(vec![node_command.as_str()]);
         Self::exec_command_on_container_and_wait(name, bash_command_parts)
@@ -799,10 +799,10 @@ impl MASQRealNode {
     fn create_node_command(node_args: Vec<String>, startup_config: NodeStartupConfig) -> String {
         let mut node_command_parts: Vec<String> = match startup_config.memory {
             Some(kbytes) => vec![format!(
-                "ulimit -v {} -m {} && /node_root/node/MASQNode",
+                "ulimit -v {} -m {} && /node_root/node/SubstratumNode",
                 kbytes, kbytes
             )],
-            None => vec!["/node_root/node/MASQNode".to_string()],
+            None => vec!["/node_root/node/SubstratumNode".to_string()],
         };
         node_command_parts.extend(node_args);
         node_command_parts.join(" ")
@@ -836,13 +836,13 @@ impl MASQRealNode {
         }
     }
 
-    pub fn make_client(&self, port: u16) -> MASQNodeClient {
+    pub fn make_client(&self, port: u16) -> SubstratumNodeClient {
         let socket_addr = SocketAddr::new(self.ip_address(), port);
-        MASQNodeClient::new(socket_addr)
+        SubstratumNodeClient::new(socket_addr)
     }
 
-    pub fn make_server(&self, port: u16) -> MASQNodeServer {
-        MASQNodeServer::new(port)
+    pub fn make_server(&self, port: u16) -> SubstratumNodeServer {
+        SubstratumNodeServer::new(port)
     }
 
     fn do_docker_run(
@@ -853,8 +853,10 @@ impl MASQRealNode {
         let container_name = container_name_ref.clone();
         let node_command_dir = format!("{}/node/target/release", root_dir);
         let host_node_home_dir = Self::node_home_dir(root_dir, container_name_ref);
-        let test_runner_node_home_dir =
-            Self::node_home_dir(&MASQNodeUtils::find_project_root(), container_name_ref);
+        let test_runner_node_home_dir = Self::node_home_dir(
+            &SubstratumNodeUtils::find_project_root(),
+            container_name_ref,
+        );
         Self::remove_test_runner_node_home_dir(&test_runner_node_home_dir);
         Self::create_test_runner_node_home_dir(&container_name, &test_runner_node_home_dir);
         Self::set_permissions_test_runner_node_home_dir(&container_name, test_runner_node_home_dir);
@@ -890,8 +892,10 @@ impl MASQRealNode {
 
     fn do_prepare_for_docker_run(container_name_ref: &String) -> Result<(), String> {
         let container_name = container_name_ref.clone();
-        let test_runner_node_home_dir =
-            Self::node_home_dir(&MASQNodeUtils::find_project_root(), container_name_ref);
+        let test_runner_node_home_dir = Self::node_home_dir(
+            &SubstratumNodeUtils::find_project_root(),
+            container_name_ref,
+        );
         Self::remove_test_runner_node_home_dir(&test_runner_node_home_dir);
         Self::create_test_runner_node_home_dir(&container_name, &test_runner_node_home_dir);
         Self::set_permissions_test_runner_node_home_dir(&container_name, test_runner_node_home_dir);
@@ -1031,17 +1035,20 @@ impl MASQRealNode {
     }
 
     fn extract_node_reference(name: &String) -> Result<NodeReference, String> {
-        let regex = Regex::new(r"MASQ Node local descriptor: ([^:]+:[\d.]*:[\d,]*)").unwrap();
+        let regex = Regex::new(r"SubstratumNode local descriptor: ([^:]+:[\d.]*:[\d,]*)").unwrap();
         let mut retries_left = 5;
         loop {
             println!("Checking for {} startup", name);
             thread::sleep(Duration::from_millis(100));
             let output = Self::exec_command_on_container_and_wait(
                 name,
-                vec!["cat", &format!("{}/MASQNode_rCURRENT.log", DATA_DIRECTORY)],
+                vec![
+                    "cat",
+                    &format!("{}/SubstratumNode_rCURRENT.log", DATA_DIRECTORY),
+                ],
             )
             .expect(&format!(
-                "Failed to read {}/MASQNode_rCURRENT.log",
+                "Failed to read {}/SubstratumNode_rCURRENT.log",
                 DATA_DIRECTORY
             ));
             match regex.captures(output.as_str()) {
@@ -1064,7 +1071,7 @@ impl MASQRealNode {
 }
 
 #[derive(Debug)]
-struct MASQRealNodeGuts {
+struct SubstratumRealNodeGuts {
     name: String,
     container_ip: IpAddr,
     node_reference: NodeReference,
@@ -1078,9 +1085,9 @@ struct MASQRealNodeGuts {
     routes_data: bool,
 }
 
-impl Drop for MASQRealNodeGuts {
+impl Drop for SubstratumRealNodeGuts {
     fn drop(&mut self) {
-        MASQNodeUtils::stop(self.name.as_str())
+        SubstratumNodeUtils::stop(self.name.as_str())
     }
 }
 
